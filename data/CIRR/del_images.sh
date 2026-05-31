@@ -1,0 +1,1 @@
+find img_raw_filtered/ -mindepth 1 -delete

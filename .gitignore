@@ -1,0 +1,83 @@
+# Python caches and environments
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+env/
+.env
+.env.*
+
+# Jupyter and editor state
+.ipynb_checkpoints/
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS metadata
+.DS_Store
+Thumbs.db
+
+# Data files and generated structured outputs
+*.json
+*.jsonl
+*.csv
+*.tsv
+
+# Model checkpoints and learned weights
+checkpoints/
+*.pt
+*.pth
+*.pth.tar
+*.ckpt
+*.safetensors
+*.onnx
+
+# Vector databases and local datastore artifacts
+chroma_db/
+**/*lmdb*/
+*.lmdb
+*.mdb
+data.mdb
+lock.mdb
+
+# Downloaded dataset image folders
+data/**/images*/
+
+# Logs and generated outputs
+logs/
+plots/
+human_rating_results/
+reproduction_experiments/
+*.log
+*.out
+*.err
+
+# Images, archives, and exported evaluation bundles
+human_annotation_images/
+mock_images/
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.gz
+*.rar
+*.7z
+*.pdf
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.gif
+
+# Local model/download caches
+.cache/
+wandb/
+lightning_logs/
+runs/

@@ -1,0 +1,1 @@
+find images/ -mindepth 1 -delete

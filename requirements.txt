@@ -1,0 +1,29 @@
+# Core scientific stack
+numpy
+pandas
+tqdm
+Pillow>=8.0
+
+# Deep learning and vision
+torch
+torchvision
+transformers
+accelerate
+
+# Retrieval/data storage
+chromadb
+lmdb
+
+# Analysis and visualization
+matplotlib
+opencv-python
+
+# Human evaluation app
+gradio>=6.14.0
+
+# Noun phrase extraction and dataset rewriting utilities
+spacy
+benepar
+
+# Optional for the VLM rewriting pipeline in data/rewrite_pipeline.py:
+# vllm
