@@ -1,6 +1,6 @@
 import multiprocessing
 
-# 必须在所有涉及并行或 CUDA 的逻辑运行前设置
+# Set the multiprocessing start method before any parallel or CUDA work.
 try:
     multiprocessing.set_start_method('spawn', force=True)
 except RuntimeError:
@@ -23,13 +23,13 @@ import unicodedata
 def clean_text(text: str) -> str:
     if not text:
         return ""
-    # 1. 标准化 Unicode (防止同一个字符有多种编码方式)
+    # 1. Normalize Unicode so equivalent characters share one encoding.
     text = unicodedata.normalize("NFKC", text)
-    # 2. 移除不可见字符和控制字符 (除了换行符和制表符)
+    # 2. Remove invisible/control characters while preserving newlines and tabs.
     text = "".join(ch for ch in text if unicodedata.category(ch)[0] != "C" or ch in "\n\t")
-    # 3. 替换极端的特殊符号为普通空格 (特别是零宽空格 \u200b)
+    # 3. Remove zero-width and other problematic formatting characters.
     text = re.sub(r'[\u200b\u200e\u200f\ufeff\xad]', '', text)
-    # 4. 将多个连续空格合并为一个
+    # 4. Collapse repeated whitespace to a single space.
     text = re.sub(r'\s+', ' ', text).strip()
     return text
 
@@ -126,7 +126,7 @@ def skip_to_resume_position(records: Sequence[Dict[str, Any]], resume_id: Any) -
 
 
 def get_text(record: Dict[str, Any]) -> Optional[str]:
-    # 尝试获取文本
+    # Resolve the modification text from the supported input fields.
     raw_text = None
     text_source = record.get("merdcir_modification")
     if isinstance(text_source, str) and text_source.strip():
@@ -140,12 +140,12 @@ def get_text(record: Dict[str, Any]) -> Optional[str]:
         elif isinstance(modification, str) and modification.strip():
             raw_text = modification
 
-    # 如果有文本，执行强效清洗
+    # Clean resolved text before parsing.
     if raw_text:
         cleaned = clean_text(raw_text)
         return cleaned if cleaned else None
     return None
-    
+
 
 def extract_leaf_nps(doc, hf_tokenizer: CLIPTokenizerFast) -> List[List[Any]]:
     leaf_nps: List[List[Any]] = []
@@ -182,36 +182,36 @@ def extract_leaf_nps(doc, hf_tokenizer: CLIPTokenizerFast) -> List[List[Any]]:
 def build_nlp(spacy_model: str, benepar_model: str, max_length: int):
     import torch
     import spacy
-    
-    # 1. 尝试激活 GPU (必须在加载模型前)
+
+    # 1. Prefer GPU execution before loading spaCy/benepar models.
     activated = spacy.prefer_gpu()
-    
-    # 2. 加载基础模型
+
+    # 2. Load the base spaCy model.
     nlp = spacy.load(spacy_model, disable=["ner", "lemmatizer", "attribute_ruler"])
-    
-    # 3. 添加 benepar
+
+    # 3. Attach the benepar constituency parser.
     nlp.add_pipe("benepar", config={"model": benepar_model})
-    
-    # 4. 更加强壮的 GPU 移动逻辑
+
+    # 4. Move benepar internals to GPU when the installed version exposes them.
     if "benepar" in nlp.pipe_names:
         component = nlp.get_pipe("benepar")
         parser = getattr(component, "_parser", None)
-        
+
         if parser:
-            # 尝试查找模型属性（可能是 .model 或 ._model）
+            # Check both known parser model attributes used by benepar versions.
             model = getattr(parser, "model", getattr(parser, "_model", None))
-            
+
             if model is not None and isinstance(model, torch.nn.Module):
                 model.cuda()
-                print(f"✅ 成功：探测到模型并移至 GPU: {next(model.parameters()).device}")
+                print(f"✅ Success: detected model and moved it to GPU: {next(model.parameters()).device}")
             elif isinstance(parser, torch.nn.Module):
-                # 某些版本 parser 本身就是 nn.Module
+                # Some benepar versions expose the parser itself as an nn.Module.
                 parser.cuda()
-                print("✅ 成功：Parser 本身即为 Module，已移至 GPU")
+                print("✅ Success: parser object is an nn.Module and was moved to GPU")
             else:
-                print("⚠️ 警告：找到了 Parser 但无法确定其内部的 torch 模型对象")
+                print("⚠️ Warning: found parser but could not identify its internal torch model object")
         else:
-            print("❌ 错误：未能在组件中找到 _parser")
+            print("❌ Error: could not find _parser in the benepar component")
 
     nlp.max_length = max_length
     return nlp, activated
@@ -221,23 +221,23 @@ def generate(records: Sequence[Dict[str, Any]], args: argparse.Namespace) -> Ite
     hf_tokenizer = CLIPTokenizerFast.from_pretrained("openai/clip-vit-base-patch32")
     nlp, use_gpu = build_nlp(args.spacy_model, args.benepar_model, args.max_length)
 
-    # 预处理文本列表
+    # Build the cleaned text batch used by spaCy pipe.
     valid_data = []
     for rec in records:
         text = get_text(rec)
         if text:
-            # 记录原始数据和清洗后的文本
+            # Keep source metadata next to the cleaned text for output reconstruction.
             valid_data.append({"rec": rec, "text": text})
 
     texts = [d["text"] for d in valid_data]
     metadata = [d["rec"] for d in valid_data]
 
-    # benepar 建议 n_process=1 (已在之前讨论)
+    # Use a single spaCy worker for benepar to keep GPU execution reproducible.
     pipe_iter = nlp.pipe(texts, batch_size=args.batch_size, n_process=1)
 
     for rec, doc in tqdm(zip(metadata, pipe_iter), total=len(metadata), desc="Extracting"):
         try:
-            # 如果某条文本还是导致了断言错误，在这里捕获它
+            # Skip only the record that still fails parser assertions or token alignment.
             nps = extract_leaf_nps(doc, hf_tokenizer)
             if not nps:
                 continue
@@ -249,8 +249,8 @@ def generate(records: Sequence[Dict[str, Any]], args: argparse.Namespace) -> Ite
                 "nps": nps,
             }
         except Exception as e:
-            # 打印错误 ID，方便后续排查，但不停止程序
-            print(f"\n⚠️ 跳过 ID {rec.get('id')}: 遇到错误 {type(e).__name__}: {e}")
+            # Log the failing record id and continue the extraction run.
+            print(f"\n⚠️ Skipping ID {rec.get('id')}: encountered error {type(e).__name__}: {e}")
             continue
 
 
