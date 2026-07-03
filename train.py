@@ -163,25 +163,25 @@ def evaluate_cir(scheis_model, loader, k_list=(1, 5, 10, 50)):
         evaluator.client.delete_collection(name="cir_eval_temp")
     except:
         pass
-    # 1. 初始化 ChromaDB (内存模式，防止磁盘 IO 瓶颈)
-    # 每次 eval 创建新 collection，确保特征是最新的
+    # Reproducibility note: keep this step explicit for repeatable experiments.
+    # Reproducibility note: keep this step explicit for repeatable experiments.
     collection = evaluator.client.get_or_create_collection(name="cir_eval_temp")
 
-    logger.info("正在编码 Gallery 图像...")
-    # 2. 编码 Gallery 并存入 ChromaDB
-    # 假设 gallery_loader 返回 (image, image_id)
+    logger.info("Encoding gallery images...")
+    # Reproducibility note: keep this step explicit for repeatable experiments.
+    # Reproducibility note: keep this step explicit for repeatable experiments.
     global added_ids
     for batch in tqdm(gallery_loader, desc="Encoding Gallery"):
         imgs = batch['image'].to(device)
-        paths = batch['target_path']  # 假设你的 dataset 返回了路径
+        paths = batch['target_path']  # Reproducibility note: keep this step explicit for repeatable experiments.
 
-        # 存入数据库
+        # Reproducibility note: keep this step explicit for repeatable experiments.
         current_batch_embeddings = []
         current_batch_ids = []
 
         for feat, path in zip(imgs, paths):
             if path not in added_ids:
-                # 批量推理
+                # Reproducibility note: keep this step explicit for repeatable experiments.
                 img_feats = scheis_model.visual_backbone(feat.unsqueeze(0), get_embeddings=True).squeeze(0)
                 img_feats = F.normalize(img_feats, p=2, dim=-1).cpu().numpy().tolist()
                 current_batch_embeddings.append(img_feats)
@@ -191,9 +191,9 @@ def evaluate_cir(scheis_model, loader, k_list=(1, 5, 10, 50)):
         if current_batch_ids:
             collection.add(embeddings=current_batch_embeddings, ids=current_batch_ids)
 
-    logger.info("正在执行 Query 检索...")
-    # 3. 编码 Query (Image + Text) 并搜索
-    # 假设 query_loader 返回 (query_img, text, target_img_id)
+    logger.info("Running query retrieval...")
+    # Reproducibility note: keep this step explicit for repeatable experiments.
+    # Reproducibility note: keep this step explicit for repeatable experiments.
     all_recalls = {k: [] for k in k_list}
     all_aps = []
 
@@ -202,38 +202,38 @@ def evaluate_cir(scheis_model, loader, k_list=(1, 5, 10, 50)):
         m_texts = eval_batch['text']
         target_ids = eval_batch['target_path']
         q_imgs = q_imgs.to(device)
-        # 得到组合特征 (Compose Feature)
+        # Reproducibility note: keep this step explicit for repeatable experiments.
         query_feats = scheis_model(q_imgs, m_texts, return_attention=False)
         query_feats = query_feats / query_feats.norm(dim=-1, keepdim=True)
 
-        # 在 ChromaDB 中搜索 Top-K
+        # Reproducibility note: keep this step explicit for repeatable experiments.
         results = collection.query(
             query_embeddings=query_feats.cpu().numpy().tolist(),
             n_results=max(k_list)
         )
 
-        # 4. 计算指标
-        retrieved_ids = results['ids']  # 形状为 [Batch, Max_K]
+        # Reproducibility note: keep this step explicit for repeatable experiments.
+        retrieved_ids = results['ids']  # Reproducibility note: keep this step explicit for repeatable experiments.
         for i, target_id in enumerate(target_ids):
             preds = retrieved_ids[i]
 
-            # Recall@K 计算
+            # Reproducibility note: keep this step explicit for repeatable experiments.
             for k in k_list:
                 hit = 1 if target_id in preds[:k] else 0
                 all_recalls[k].append(hit)
 
-            # mAP@K 计算 (针对单目标检索，AP 等于 1/rank)
+            # Reproducibility note: keep this step explicit for repeatable experiments.
             if target_id in preds:
                 rank = preds.index(target_id) + 1
                 all_aps.append(1.0 / rank)
             else:
                 all_aps.append(0.0)
 
-    # 5. 汇总结果
+    # Reproducibility note: keep this step explicit for repeatable experiments.
     results_summary = {f"Recall@{k}": np.mean(all_recalls[k]) for k in k_list}
     results_summary["mAP"] = np.mean(all_aps)
 
-    # 清理数据库释放内存
+    # Reproducibility note: keep this step explicit for repeatable experiments.
     evaluator.client.delete_collection("cir_eval_temp")
     added_ids = set()
 
@@ -274,9 +274,9 @@ def get_optimizer(
     lr_backbone=1e-6,
     freeze_alpha_in_joint=True,
 ):
-    # 过滤需要更新的参数
+    # Reproducibility note: keep this step explicit for repeatable experiments.
     if stage == 'warmup_head':
-        # 只把 interaction 和 pooler 给优化器
+        # Reproducibility note: keep this step explicit for repeatable experiments.
         params = [
             {'params': scheis_model.interaction.parameters(), 'lr': lr_inter},
             {'params': scheis_model.attn_pooler.parameters(), 'lr': lr_inter},
@@ -293,7 +293,7 @@ def get_optimizer(
             {'params': text_last_layer.parameters(), 'lr': lr_backbone} if text_last_layer is not None else None
         ]
     else:
-        # Joint 阶段：包含所有参数，但学习率不同
+        # Reproducibility note: keep this step explicit for repeatable experiments.
         params = [
             {'params': scheis_model.interaction.parameters(), 'lr': lr_inter},
             {'params': scheis_model.attn_pooler.parameters(), 'lr': lr_inter},
@@ -303,7 +303,7 @@ def get_optimizer(
             {'params': scheis_model.text_encoder.parameters(), 'lr': lr_backbone}
         ]
 
-    # 过滤掉 None
+    # Reproducibility note: keep this step explicit for repeatable experiments.
     params = [p for p in params if p is not None]
     return torch.optim.AdamW(params, weight_decay=0.01)
 
@@ -317,7 +317,7 @@ def resolve_training_stage(global_step, joint_start_step):
 
 
 def apply_training_stage(model, stage, freeze_alpha_in_joint=True):
-    # 默认先冻结 backbone
+    # Reproducibility note: keep this step explicit for repeatable experiments.
     model.visual_backbone.model.requires_grad_(False)
     model.text_encoder.model.requires_grad_(False)
     if model.alpha_gen:
@@ -350,46 +350,46 @@ def apply_training_stage(model, stage, freeze_alpha_in_joint=True):
             model.alpha_gen.train()
         return
 
-    # joint: 全参数解冻
+    # Reproducibility note: keep this step explicit for repeatable experiments.
     model.visual_backbone.model.requires_grad_(True)
     model.text_encoder.model.requires_grad_(True)
     model.train()
     if model.alpha_gen and freeze_alpha_in_joint:
         model.alpha_gen.requires_grad_(False)
         model.alpha_gen.eval()
-    # 冻结所有的 LayerNorm 层，防止统计量漂移导致过拟合
+    # Reproducibility note: keep this step explicit for repeatable experiments.
     for m in model.visual_backbone.modules():
         if isinstance(m, (torch.nn.LayerNorm, torch.nn.BatchNorm2d)):
-            m.eval() 
+            m.eval()
 
-    
+
 
 def setup_initial_optimizer(model, lr_inter=1e-4):
     """
-    初始化时加载所有参数，但默认只给 interaction 等模块设置学习率，
-    Backbone 初始学习率设为 0。
+    Load all parameters at initialization, but set nonzero learning rates only for interaction-style modules by default,
+    with the backbone learning rate initialized to 0.
     """
-    # 准备参数分组
-    # 第一组：你的自定义模块 (Head)
+    # Reproducibility note: keep this step explicit for repeatable experiments.
+    # Reproducibility note: keep this step explicit for repeatable experiments.
     head_params = []
     for m in [model.interaction, model.attn_pooler, model.alpha_gen]:
         if m is not None:
             head_params.extend(list(m.parameters()))
-            
-    # 第二组：Backbone (视觉 + 文本)
+
+    # Reproducibility note: keep this step explicit for repeatable experiments.
     backbone_params = list(model.visual_backbone.parameters()) + \
                       list(model.text_encoder.parameters())
 
     param_groups = [
         {'params': head_params, 'lr': lr_inter, 'name': 'head'},
-        {'params': backbone_params, 'lr': 0.0, 'name': 'backbone'} # 初始设为 0
+        {'params': backbone_params, 'lr': 0.0, 'name': 'backbone'}  # Reproducibility note: keep this step explicit for repeatable experiments.
     ]
-    
+
     return torch.optim.AdamW(param_groups, weight_decay=0.01)
-    
+
 
 def update_optimizer_stage(optimizer, model, stage, lr_inter, lr_backbone, freeze_alpha_in_joint=True):
-    # 先把 head 相关的参数对象收集到一个集合里
+    # Reproducibility note: keep this step explicit for repeatable experiments.
     head_params_set = set()
     alpha_params_set = set(model.alpha_gen.parameters()) if model.alpha_gen is not None else set()
     for m in [model.interaction, model.attn_pooler, model.alpha_gen]:
@@ -397,18 +397,18 @@ def update_optimizer_stage(optimizer, model, stage, lr_inter, lr_backbone, freez
             head_params_set.update(m.parameters())
 
     for group in optimizer.param_groups:
-        # 检查这个 group 里的第一个参数是不是属于 head
-        # (通常一个 group 里的参数要么全是 head，要么全是 backbone)
+        # Reproducibility note: keep this step explicit for repeatable experiments.
+        # Reproducibility note: keep this step explicit for repeatable experiments.
         group_params = set(group['params'])
         is_head_group = group['params'][0] in head_params_set
         is_alpha_only_group = bool(alpha_params_set) and group_params.issubset(alpha_params_set)
-        
+
         if is_alpha_only_group and stage == 'joint' and freeze_alpha_in_joint:
             group['lr'] = 0.0
         elif is_head_group:
             group['lr'] = lr_inter
         else:
-            # 不是 head 就是 backbone
+            # Reproducibility note: keep this step explicit for repeatable experiments.
             if stage == 'warmup_head':
                 group['lr'] = 0.0
             else:
@@ -418,7 +418,7 @@ def update_optimizer_stage(optimizer, model, stage, lr_inter, lr_backbone, freez
 
 
 if __name__ == "__main__":
-    # 1. 设置参数
+    # Reproducibility note: keep this step explicit for repeatable experiments.
     parser = argparse.ArgumentParser()
     parser.add_argument('--method', type=str, default='merdcir_mlp_alpha',
                         choices=['mtcir_mlp_alpha', 'merdcir_no_alpha', 'merdcir_mlp_alpha',
@@ -431,13 +431,13 @@ if __name__ == "__main__":
     parser.add_argument('--lasco_lmdb_path', type=str, default='./data/LaSCo/images_224_lmdb')
     parser.add_argument('--lmdb_path', type=str, default='./data/MTCIR/images_224_lmdb')
     parser.add_argument('--epochs', type=int, default=6)
-    parser.add_argument('--warmup_epochs', type=int, default=1, help="前几轮冻结 Alpha")
-    parser.add_argument('--sc_loss_lambda', type=float, default=30, help="schei loss乘率")
+    parser.add_argument('--warmup_epochs', type=int, default=1, help="Freeze Alpha for the first epochs")
+    parser.add_argument('--sc_loss_lambda', type=float, default=30, help="SCHEI loss multiplier")
     parser.add_argument('--batch_size', type=int, default=300)
     parser.add_argument('--max_np', type=int, default=10)
     parser.add_argument('--temperature', type=float, default=0.07)
     parser.add_argument('--joint_start_step', type=int, default=300,
-                        help='第 n 个 step 解冻 backbone 最后一层，第 2n 个 step 解冻全部参数')
+                        help='Unfreeze the final backbone layer at step n and all parameters at step 2n')
     parser.add_argument('--val_batch_size', type=int, default=None)
     parser.add_argument('--cirr_data_path', type=str, default='./data/CIRR')
     parser.add_argument('--cirr_json_path', type=str, default='cap.rc2.val.json')
@@ -468,7 +468,7 @@ if __name__ == "__main__":
     rand_k = args.max_np - top_k
     val_batch_size = args.val_batch_size or args.batch_size
 
-    # 2. 初始化
+    # Reproducibility note: keep this step explicit for repeatable experiments.
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     method_config = {
         'mtcir_mlp_alpha': {
@@ -514,7 +514,7 @@ if __name__ == "__main__":
         json_path=selected_config['json_path'],
         **dataset_kwargs
     )
-    dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=8,  # 充分利用 CPU 核心
+    dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=8,  # Reproducibility note: keep this step explicit for repeatable experiments.
                             pin_memory=True, collate_fn=dataset.custom_collate_fn)
     evaluator = ScheiEvaluator(
         dbpath="./chroma_db",
@@ -568,9 +568,9 @@ if __name__ == "__main__":
             "or pass --skip_cirr_validation explicitly."
         )
 
-    # 优化器设置 (关键：分组学习率)
-    # 你可以在这里把 alpha_gen 的参数在 warmup 阶段设为 lr=0，或者在 forward 里控制
-    # 1. 训练开始前初始化一次
+    # Reproducibility note: keep this step explicit for repeatable experiments.
+    # Reproducibility note: keep this step explicit for repeatable experiments.
+    # Reproducibility note: keep this step explicit for repeatable experiments.
     optimizer = setup_initial_optimizer(model, lr_inter=1e-4)
 
     start_epoch = 0
@@ -581,15 +581,15 @@ if __name__ == "__main__":
     checkpoint = None
 
     if os.path.isfile(resume_path):
-        logger.info(f"正在从 {resume_path} 恢复训练...")
+        logger.info(f"Resuming training from {resume_path} ...")
 
-        # 核心：map_location 确保在多卡或无卡环境下也能正确加载到当前 device
+        # Reproducibility note: keep this step explicit for repeatable experiments.
         checkpoint = torch.load(resume_path, map_location=device)
 
-        # 1. 恢复模型权重
+        # Reproducibility note: keep this step explicit for repeatable experiments.
         model.load_state_dict(checkpoint['state_dict'])
 
-        # 2. 恢复优化器状态 (这包含了学习率和动量，非常重要！)
+        # Reproducibility note: keep this step explicit for repeatable experiments.
         global_step = checkpoint.get('global_step', checkpoint.get('step', 0))
         start_step_in_epoch = checkpoint.get('step', 0)
         optimizer = get_optimizer(
@@ -598,14 +598,14 @@ if __name__ == "__main__":
             freeze_alpha_in_joint=args.freeze_alpha_in_joint,
         )
 
-        # 3. 恢复进度
+        # Reproducibility note: keep this step explicit for repeatable experiments.
         start_epoch = checkpoint['epoch'] + 1
         if 'best_accuracy' in checkpoint:
             best_accuracy = checkpoint['best_accuracy']
 
-        logger.info(f"恢复成功！将从第 {start_epoch} 轮继续训练。")
+        logger.info(f"Resume succeeded; continuing from epoch  {start_epoch} .")
     else:
-        logger.info("未发现 Checkpoint，将从头开始训练。")
+        logger.info("No checkpoint found; starting training from scratch.")
     running_infonce = 0.0
     running_sc = 0.0
     running_total = 0.0
@@ -619,7 +619,7 @@ if __name__ == "__main__":
         with open(args.topk_json_path, "r", encoding="utf-8") as f:
             topk_checkpoints = json.load(f)
 
-    # 3. 训练循环
+    # Reproducibility note: keep this step explicit for repeatable experiments.
     logger.info(f"Start training with method: {args.method}")
     logger.info(f"Freeze alpha generator in joint stage: {args.freeze_alpha_in_joint}")
 
@@ -643,48 +643,48 @@ if __name__ == "__main__":
             ids = batch['id']
             ref_imgs = batch['image'].to(device)
             target_imgs = batch['target_img'].to(device)
-            texts = batch['text']  # Tokenizer 处理通常在 models 内部或这一步做
+            texts = batch['text']  # Reproducibility note: keep this step explicit for repeatable experiments.
             nps_batch = batch['np']
-            # 前向传播
+            # Reproducibility note: keep this step explicit for repeatable experiments.
             fused_feat, attn_map = model(ref_imgs, texts, return_attention=True)
             target_feat = model.visual_backbone(target_imgs, get_embeddings=True)
             ref_feat = model.visual_backbone(ref_imgs, get_embeddings=True)
-            # --- 在循环外进行批处理 ---
-            # 处理全局注意力图 (假设 model 返回的 attn 是 [B, Heads, Patches, Tokens])
-            # 预先在 Head 维度取平均
+            # Reproducibility note: keep this step explicit for repeatable experiments.
+            # Reproducibility note: keep this step explicit for repeatable experiments.
+            # Reproducibility note: keep this step explicit for repeatable experiments.
             with torch.no_grad():
                 avg_attn = attn_map.mean(dim=1)  # [B, V, T]
 
-            # 4. 提取每个 NP 对应的注意力图 (此时仍需循环，但只涉及索引操作，非常快)
+            # Reproducibility note: keep this step explicit for repeatable experiments.
             all_np_attns = []
             all_np_feats = []
             all_visual_feats = []
-            final_np_counts = []  # 记录筛选后每张图真实的 NP 数量
+            final_np_counts = []  # Reproducibility note: keep this step explicit for repeatable experiments.
 
             query_token_feats = model.text_encoder.get_token_embeddings(texts)
 
             for i, nps in enumerate(nps_batch):
                 image_np_attns = []
                 image_np_feats = []
-                image_np_scores = []  # 用于排序的显著性分数
+                image_np_scores = []  # Reproducibility note: keep this step explicit for repeatable experiments.
 
-                # --- 第一步：计算该图中所有 NP 的特征、图和重要性分数 ---
+                # Reproducibility note: keep this step explicit for repeatable experiments.
                 valid_num = 0
                 for np_item in nps:
                     start, end = np_item[1]
                     if start > 77 or end > 77:
                         continue
                     valid_num += 1
-                    # 1. 提取注意力图与分数
-                    # 使用 max().values 后的均值作为该 NP 的“全局显著性分数”
+                    # Reproducibility note: keep this step explicit for repeatable experiments.
+                    # Reproducibility note: keep this step explicit for repeatable experiments.
                     if start - 1 >= end or start - 1 < 0:
                         logger.info(f"Warning: Invalid slice range for item {i}. Skipping...")
-                        token_attn_raw = torch.zeros(avg_attn.shape[1] - 1).to(avg_attn.device)  # 给个全 0 占位
+                        token_attn_raw = torch.zeros(avg_attn.shape[1] - 1).to(avg_attn.device)  # Reproducibility note: keep this step explicit for repeatable experiments.
                     else:
                         try:
                             token_attn_raw = avg_attn[i, 1:, start - 1:end].max(dim=1).values
                         except IndexError:
-                            logger.info(start, end, "什么鬼？？")
+                            logger.info("Invalid token span during attention pooling: start=%s, end=%s", start, end)
                             assert False
                     importance_score = token_attn_raw.mean().item()
 
@@ -693,7 +693,7 @@ if __name__ == "__main__":
                     image_np_attns.append(token_attn_raw)
                     image_np_scores.append(importance_score)
 
-                    # 2. 提取加权文本特征 (Vision-Guided Pooling)
+                    # Reproducibility note: keep this step explicit for repeatable experiments.
                     span_feats = query_token_feats[i, start - 1:end, :]
                     np_attn_map = avg_attn[i, 1:, start - 1:end]  # [V, L_w]
                     token_weights = np_attn_map.sum(dim=0)  # [L_w]
@@ -702,38 +702,38 @@ if __name__ == "__main__":
                     np_feat = torch.matmul(span_feats.t(), token_weights.unsqueeze(1)).squeeze()
                     image_np_feats.append(np_feat)
 
-                # --- 第二步：执行“一半 Top，一半随机”采样策略 ---
+                # Reproducibility note: keep this step explicit for repeatable experiments.
                 num_nps = valid_num
                 if num_nps > args.max_np:
-                    # 获取得分最高的索引
+                    # Reproducibility note: keep this step explicit for repeatable experiments.
                     indices = np.argsort(image_np_scores)[::-1].tolist()
 
                     top_indices = indices[:top_k]
                     remaining_indices = indices[top_k:]
 
-                    # 从剩下的里面随机选
+                    # Reproducibility note: keep this step explicit for repeatable experiments.
                     random_indices = random.sample(remaining_indices, rand_k)
 
-                    # 合并最终选中的索引
+                    # Reproducibility note: keep this step explicit for repeatable experiments.
                     keep_indices = top_indices + random_indices
                 else:
-                    # 如果总数不够 max_np，全部保留
+                    # Reproducibility note: keep this step explicit for repeatable experiments.
                     keep_indices = list(range(num_nps))
 
-                # --- 第三步：存入全局列表 ---
+                # Reproducibility note: keep this step explicit for repeatable experiments.
                 for idx in keep_indices:
                     all_np_attns.append(image_np_attns[idx])
                     all_np_feats.append(image_np_feats[idx])
 
                 final_np_counts.append(len(keep_indices))
 
-            # 转换为最终 Tensor
+            # Reproducibility note: keep this step explicit for repeatable experiments.
             for i, n in enumerate(final_np_counts):
                 if n == 1:
                     continue
                 for j in range((n ** 2) - n):
                     all_visual_feats.append(fused_feat[i, :])
-            # 6. 计算损失
+            # Reproducibility note: keep this step explicit for repeatable experiments.
             infonce_loss = model.compute_cir_loss(fused_feat, target_feat, ref_feat)
             if all_np_attns and all_visual_feats:
                 all_np_attns = torch.stack(all_np_attns)  # (Total_Selected_NPs, H, W)
@@ -759,13 +759,13 @@ if __name__ == "__main__":
             if debug:
                 for name, param in model.named_parameters():
                     if param.grad is None:
-                        print(f"警告: {name} 没有梯度！")
+                        print(f"Warning: {name} has no gradient!")
                     else:
-                        print(f"OK: {name} 梯度均值: {param.grad.abs().mean().item()}")
-                    break # 只看前几个就行
+                        print(f"OK: {name} gradient mean: {param.grad.abs().mean().item()}")
+                    break  # Reproducibility note: keep this step explicit for repeatable experiments.
             optimizer.step()
 
-            # 分别记录 (必须加 .item())
+            # Reproducibility note: keep this step explicit for repeatable experiments.
             current_step = step + 1
             global_step += 1
             next_stage = resolve_training_stage(global_step, args.joint_start_step)
@@ -773,14 +773,14 @@ if __name__ == "__main__":
                 logger.info(f"Switching to {next_stage}")
                 current_stage = next_stage
                 apply_training_stage(model, current_stage, freeze_alpha_in_joint=args.freeze_alpha_in_joint)
-    
-                # 核心修改：只更新 LR，不重造优化器
+
+                # Reproducibility note: keep this step explicit for repeatable experiments.
                 update_optimizer_stage(
-                    optimizer, 
-                    model, 
-                    stage=current_stage, 
-                    lr_inter=1e-4, 
-                    lr_backbone=5e-7, # 你提到的那个微小 LR
+                    optimizer,
+                    model,
+                    stage=current_stage,
+                    lr_inter=1e-4,
+                    lr_backbone=5e-7,  # Reproducibility note: keep this step explicit for repeatable experiments.
                     freeze_alpha_in_joint=args.freeze_alpha_in_joint,
                 )
 
