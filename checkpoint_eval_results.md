@@ -113,3 +113,71 @@
 | topk_no_instance | `topk_epoch_0005_step_000900_score_0.482925.pth.tar` | 0.482925 | `cross_attn` | FashionIQ | 0.065148 | 0.148801 | 0.203377 | 0.412596 | 0.111227 |  | ok |
 | topk_no_instance | `topk_epoch_0005_step_000900_score_0.482925.pth.tar` | 0.482925 | `cross_attn` | CIRR/recall |  |  |  |  |  | [`topk_epoch_0005_step_000900_score_0.482925__cirr_recall.json`](checkpoints/topk_no_instance/topk_epoch_0005_step_000900_score_0.482925__cirr_recall.json) | ok |
 | topk_no_instance | `topk_epoch_0005_step_000900_score_0.482925.pth.tar` | 0.482925 | `cross_attn` | CIRR/recall_subset |  |  |  |  |  | [`topk_epoch_0005_step_000900_score_0.482925__cirr_recall_subset.json`](checkpoints/topk_no_instance/topk_epoch_0005_step_000900_score_0.482925__cirr_recall_subset.json) | ok |
+
+---
+
+# Pair-Control Follow-up Experiment Results (2026-08-10, 3 seeds)
+
+- Protocol: `FOLLOWUP_EXPERIMENT_PLAN.md`; frozen pair_control split (train 255,400 / dev 10,000 / test 10,000)
+- Training: `merdcir_mlp_alpha`, 3 epochs, batch 300, seeds {42, 123, 2025}, common-dev = original MTCIR text
+- Checkpoint selection: `c* = argmax mAP_common-dev` per condition (all at E2 S600); single preselected checkpoint per run
+- CIRR/FashionIQ = development-transfer evaluation (CIRR on val set, no local test1 labels)
+- Mean ± std (3 seeds) and paired bootstrap CI: see `PAIR_CONTROL_RESULTS.md`
+
+## Source-domain held-out test (MTCIR test, 10K frozen queries)
+
+| Condition | Checkpoint (common-dev mAP) | Recall@1 | mAP |
+|---|---:|---:|---:|
+| RAW s42 | `topk_pair_raw_s42/..._step_000600_score_0.432042.pth.tar` | 0.605900 | 0.713751 |
+| RAW s123 | `topk_pair_raw_s123/..._step_000600_score_0.433568.pth.tar` | 0.607200 | 0.714598 |
+| RAW s2025 | `topk_pair_raw_s2025/..._step_000600_score_0.434493.pth.tar` | 0.605600 | 0.714570 |
+| FIXED s42 | `topk_pair_fixed_s42/..._step_000600_score_0.424210.pth.tar` | 0.493300 | 0.610328 |
+| FIXED s123 | `topk_pair_fixed_s123/..._step_000600_score_0.426339.pth.tar` | 0.498400 | 0.612458 |
+| FIXED s2025 | `topk_pair_fixed_s2025/..._step_000600_score_0.423249.pth.tar` | 0.491200 | 0.608091 |
+| MULTI s42 | `topk_pair_multi_s42/..._step_000600_score_0.441448.pth.tar` | 0.565100 | 0.681364 |
+| MULTI s123 | `topk_pair_multi_s123/..._step_000600_score_0.442584.pth.tar` | 0.574300 | 0.686942 |
+| MULTI s2025 | `topk_pair_multi_s2025/..._step_000600_score_0.440373.pth.tar` | 0.567500 | 0.682202 |
+
+## MerdCIR eval
+
+| Condition | Recall@1 | mAP |
+|---|---:|---:|
+| RAW s42 | 0.631600 | 0.732668 |
+| RAW s123 | 0.619600 | 0.725332 |
+| RAW s2025 | 0.618800 | 0.725965 |
+| FIXED s42 | 0.588800 | 0.689416 |
+| FIXED s123 | 0.584800 | 0.685261 |
+| FIXED s2025 | 0.587200 | 0.686759 |
+| MULTI s42 | 0.683400 | 0.777856 |
+| MULTI s123 | 0.677400 | 0.774144 |
+| MULTI s2025 | 0.675600 | 0.772051 |
+
+## FashionIQ val (average over dress/shirt/toptee)
+
+| Condition | Recall@1 | mAP |
+|---|---:|---:|
+| RAW s42 | 0.053491 | 0.094840 |
+| RAW s123 | 0.051405 | 0.092885 |
+| RAW s2025 | 0.049958 | 0.090731 |
+| FIXED s42 | 0.059227 | 0.101509 |
+| FIXED s123 | 0.059478 | 0.099333 |
+| FIXED s2025 | 0.057160 | 0.099004 |
+| MULTI s42 | 0.053527 | 0.097837 |
+| MULTI s123 | 0.052193 | 0.095732 |
+| MULTI s2025 | 0.053302 | 0.096949 |
+
+## CIRR val (cap.rc2.val.json, development-transfer)
+
+| Condition | Recall@1 | Recall@5 | Recall_subset@1 | Recall_subset@3 |
+|---|---:|---:|---:|---:|
+| RAW s42 | 0.239895 | 0.532169 | 0.622339 | 0.913896 |
+| RAW s123 | 0.239177 | 0.537910 | 0.625448 | 0.915810 |
+| RAW s2025 | 0.241808 | 0.530017 | 0.615642 | 0.911504 |
+| FIXED s42 | 0.250419 | 0.531452 | 0.658933 | 0.925138 |
+| FIXED s123 | 0.255680 | 0.528103 | 0.651040 | 0.926094 |
+| FIXED s2025 | 0.249940 | 0.532169 | 0.652236 | 0.922985 |
+| MULTI s42 | 0.259029 | 0.546281 | 0.639082 | 0.918441 |
+| MULTI s123 | 0.256876 | 0.551064 | 0.640038 | 0.924898 |
+| MULTI s2025 | 0.259986 | 0.545802 | 0.632863 | 0.918441 |
+
+Full analysis, text-mechanism stats, and hypothesis assessment: see `PAIR_CONTROL_RESULTS.md`.
