@@ -30,6 +30,21 @@ For each (stage, epsilon) cell, with identical init/batch/forward outputs:
 
 Raw results: `reproduction_evidence/text_cc_gradient_probe.json`.
 
+### Converged-model confirmation (added 2026-08-13)
+
+Same probe re-run on the **converged** checkpoint `converged_runs/config_b_residual_cc_eps008_batched/epoch=5-step=1326` (trained with λ_cc=0.08, ε=0.08):
+
+| stage | ε | loss_main | loss_cc | **ρ_g** | cosine(main, λ·cc) |
+|---|---|---|---|---|---|
+| early | 0.0 | 1.4807 | 7.0e-5 | **1.005e-04** | +0.0043 |
+| early | 0.05 / 0.08 | 1.4807 | 0.0 | **0** | nan |
+| mid | 0.0 | 1.3121 | 7.3e-5 | **9.002e-05** | −0.0140 |
+| mid | 0.05 / 0.08 | 1.3121 | 0.0 | **0** | nan |
+| late | 0.0 | 0.9470 | 8.8e-5 | **6.035e-05** | −0.0045 |
+| late | 0.05 / 0.08 | 0.9470 | 0.0 | **0** | nan |
+
+Raw: `reproduction_evidence/text_cc_gradient_probe_converged.json`. Under the converged model the conclusion is unchanged: **ε>0 ⇒ loss≡0 ⇒ zero gradient** (so the λ_cc=0.08 run itself never received CC signal), and even at ε=0 the raw-CC gradient ratio stays ≤ 1e-4 with near-orthogonal direction.
+
 ## Interpretation (bounded to the local released-code reproduction)
 
 1. **Thresholded Text CC is inactive under any ε>0**: with ε=0.05 (paper/Train.py default) and ε=0.08, `loss_cc ≡ 0` on every stage batch → **zero gradient, the term does not enter the optimization objective** in this setting. This extends the earlier loss-level scan (63/63 samples zeroed, `text_cc_epsilon_scan_64_summary.json`) to the gradient level.

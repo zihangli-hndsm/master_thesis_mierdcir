@@ -192,12 +192,22 @@ def main():
     ap.add_argument("--epsilon_cc", type=float, default=0.05)
     ap.add_argument("--backbone_size", default="B", choices=["B", "L", "H"])
     ap.add_argument("--batch_size", type=int, default=8)
+    ap.add_argument("--checkpoint", default=None,
+                    help="Optional converged .ckpt (Lightning) to load instead of untrained init")
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     ap.add_argument("--output_prefix", default="text_cc_gradient_probe")
     args = ap.parse_args()
 
     torch.manual_seed(0)
     model = build_model(args)
+    if args.checkpoint:
+        ckpt = torch.load(args.checkpoint, map_location="cpu", weights_only=False)
+        sd = ckpt["state_dict"] if "state_dict" in ckpt else ckpt
+        missing, unexpected = model.load_state_dict(sd, strict=False)
+        print(f"loaded {args.checkpoint}: missing={len(missing)} unexpected={len(unexpected)}")
+        if missing:
+            print("  missing sample:", list(missing)[:5])
+    model = model.to(args.device)
     dataset = build_dataset(model, args)
     n = len(dataset)
     print(f"dataset size: {n}")

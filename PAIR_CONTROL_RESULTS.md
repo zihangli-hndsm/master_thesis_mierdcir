@@ -130,7 +130,10 @@
 1. seeds=3/条件(满足计划最低要求,但 paired bootstrap 仍应视为描述性;每条件 5 seeds 更佳);
 2. **Surface-Diverse 控制已完成探索性分析**(2026-08-10,50K 子集 × 1 seed,详见 `SURFACE_DIVERSE_REPORT.md`):6 表面模板生成均衡且句式保持,但性能受数据量混淆(50K vs 255K),**不作为正式对照**;正式对照需全量 255K SD 语料(~11h 生成)+ 3 seeds 训练,超出本次 session 预算;
 3. CIRR/FashionIQ 属 development-transfer evaluation(非官方 test server);
-4. 训练预算 3 epochs 较短(先行实验 fixed/multi 为 280K 数据,不可直接对比)。
+4. 训练预算 3 epochs 较短(先行实验 fixed/multi 为 280K 数据,不可直接对比);
+5. **⚠️ Image-level leakage caveat(2026-08-13 审计确认,详见 `audit/MTCIR_AUDIT_REPORT.md`):** pair_control split 是 **triplet-disjoint 但非 image-disjoint**——test 的 62.9% reference、58.6% target 图片出现在 train(任意角色重叠 14,018 张)。所有数字均为 **pair-held-out 性能**,不能表述为 image-held-out 泛化。论文需明确此边界;如需 image-held-out 声明,须按图片连接分量重划分并重训核心对照;
+6. **评估器审计(2026-08-13):** 新增精确评估(`eval_checkpoint.py --exact-gallery`)batch 完全不变(R@1=0.605800 @ bs64/128/256);原 ChromaDB/HNSW 路径有 ≤2e-4 ANN 噪声。论文最终数字建议统一用精确评估器重算(pair_control 报告中的数字与精确值差异 ≤2/10,000,不影响任何结论);
+7. **旧 7.62% 解释(2026-08-13):** 旧 topk_mtcir 7.62% 是弱早期 checkpoint(score 0.115)在旧 5K split 上的结果;2×2 交叉实验(A=0.0762/B=0.1139/C=0.4757/D=0.6058)证明差异主要来自 checkpoint 质量(≈40-49pt),split 次之(≈4-13pt),评估器无 bug。
 
 **下一步(优先级排序):**
 1. ~~补第 3 个 seed~~ ✅ 2026-08-10 完成(3 条件 × 3 seeds 全部评估完毕,n=3 统计完成);
