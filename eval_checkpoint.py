@@ -444,6 +444,46 @@ def evaluate(model, loader, collection_name, device, k_list=(1, 5, 10, 50)):
 
 
 @torch.no_grad()
+def evaluate_exact(model, loader, collection_name, device, k_list=(1, 5, 10, 50)):
+    """Exact (non-ANN) global-gallery evaluation for MTCIR/MerdCIR.
+
+    Same gallery construction as evaluate() (unique target images), but ranks by
+    exact cosine via matmul instead of ChromaDB/HNSW, so results are exactly
+    invariant to batch size and gallery insertion order.
+    """
+    gallery_ids = []
+    gallery_embs = []
+    for batch in tqdm(loader, desc="Building gallery (exact)"):
+        target_imgs = batch["target_img"].to(device)
+        target_feats = F.normalize(model.visual_backbone(target_imgs, get_embeddings=True), dim=-1).cpu()
+        for feat, target_path in zip(target_feats, batch["target_path"]):
+            if target_path in gallery_ids:
+                continue
+            gallery_ids.append(target_path)
+            gallery_embs.append(feat)
+    gallery = torch.stack(gallery_embs, dim=0)
+    id_to_index = {g: i for i, g in enumerate(gallery_ids)}
+
+    recalls = {k: [] for k in k_list}
+    aps = []
+    for batch in tqdm(loader, desc="Evaluating (exact)"):
+        images = batch["image"].to(device)
+        texts = batch["text"]
+        target_ids = batch["target_path"]
+        query_feats = F.normalize(model(images, texts, return_attention=False), dim=-1).cpu()
+        scores = gallery @ query_feats.T  # (G, B)
+        for i, target_id in enumerate(target_ids):
+            gi = id_to_index[target_id]
+            rank = int((scores[:, i].argsort(descending=True) == gi).nonzero()[0].item()) + 1
+            aps.append(1.0 / rank)
+            for k in k_list:
+                recalls[k].append(1 if rank <= k else 0)
+    summary = {f"Recall@{k}": float(np.mean(recalls[k])) for k in k_list}
+    summary["mAP"] = float(np.mean(aps))
+    return summary
+
+
+@torch.no_grad()
 def evaluate_fashioniq(model, loader, device, k_list=(1, 5, 10, 50), return_predictions=False):
     dataset = loader.dataset
     id_to_index, gallery_ids, gallery_chunks = _encode_fashioniq_gallery(model, dataset, device)
@@ -770,11 +810,18 @@ def _load_cirr_gallery_ids(split_json_path):
                 payload = payload[key]
                 break
         else:
-            values = []
-            for value in payload.values():
-                if isinstance(value, list):
-                    values.extend(value)
-            payload = values
+            # dict keyed by image id (e.g. split.rc2.test1.json: {"test1-1-0-img0": "./test1/test1-1-0-img0.png"})
+            if payload and all(isinstance(v, (str,)) for v in payload.values()):
+                ids = list(payload.keys())
+            else:
+                values = []
+                for value in payload.values():
+                    if isinstance(value, list):
+                        values.extend(value)
+                payload = values
+                ids = None
+            if ids is not None:
+                payload = ids
 
     ids = []
     for item in payload:
@@ -827,8 +874,18 @@ def main():
     parser = argparse.ArgumentParser(description="Evaluate checkpoint on CIR datasets.")
     parser.add_argument("--checkpoint", type=str, required=True)
     parser.add_argument("--dataset", type=str, required=True, choices=["CIRR", "FashionIQ", "MerdCIR", "MTCIR"])
+    parser.add_argument("--eval-json-path", type=str, default=None,
+                        help='Override the eval JSONL path for MTCIR/MerdCIR (defaults to dataset-specific path)')
+    parser.add_argument("--batch-size", type=int, default=128,
+                        help="Inference batch size (used for batch-size invariance checks)")
     parser.add_argument("--method", type=str, default="cross_attn_alpha")
+    parser.add_argument("--backbone-size", type=str, default="B", choices=["B", "L", "H"],
+                        help="CLIP backbone size: B=ViT-B/32, L=ViT-L/14, H=ViT-H/14")
+    parser.add_argument("--exact-gallery", action="store_true",
+                        help="Use exact matmul ranking instead of ChromaDB (MTCIR/MerdCIR; batch-size invariant)")
     parser.add_argument("--cirr-metric", type=str, default="recall", choices=["recall", "recall_subset", "subset_eval"])
+    parser.add_argument("--cirr-force-export", action="store_true",
+                        help="Force evaluate_cirr_and_dump even when target labels exist (val rehearsal)")
     parser.add_argument("--cirr-json-path", type=str, default=None)
     parser.add_argument("--cirr-split-json-path", type=str, default=None)
     parser.add_argument("--cirr-lmdb-path", type=str, default=None)
@@ -841,7 +898,7 @@ def main():
     args = parser.parse_args()
 
     dataset_cfg = DATASET_PATHS[args.dataset]
-    batch_size = 128
+    batch_size = args.batch_size
     num_workers = 4
     temperature = 0.07
     cirr_metric = args.cirr_metric
@@ -850,7 +907,8 @@ def main():
         cirr_output_json = args.output_json
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = ScheiCIR(method=args.method, temperature=temperature).to(device)
+    model = ScheiCIR(method=args.method, temperature=temperature,
+                     backbone_size=args.backbone_size).to(device)
 
     ckpt = torch.load(args.checkpoint, map_location=device)
     state_dict = ckpt["state_dict"] if "state_dict" in ckpt else ckpt
@@ -915,6 +973,8 @@ def main():
     json_path = dataset_cfg["json_path"]
     split_json_path = dataset_cfg.get("split_json_path")
     lmdb_path = dataset_cfg["lmdb_path"]
+    if args.eval_json_path:
+        json_path = args.eval_json_path
     if args.dataset == "CIRR":
         lmdb_path = args.cirr_lmdb_path or lmdb_path
         if cirr_metric == "subset_eval":
@@ -943,17 +1003,7 @@ def main():
     )
     collection_name = f"eval_{args.dataset.lower()}_{os.getpid()}"
     if args.dataset == "CIRR":
-        if cirr_metric == "subset_eval" or (cirr_metric == "recall_subset" and dataset.has_targets):
-            result = evaluate_cirr_subset(model, loader, device)
-            print("Dataset: CIRR/subset")
-            for key, value in result.items():
-                print(f"{key}: {value:.6f}")
-        elif cirr_metric == "recall" and dataset.has_targets:
-            result = evaluate_cirr_recall(model, loader, device)
-            print("Dataset: CIRR/recall")
-            for key, value in result.items():
-                print(f"{key}: {value:.6f}")
-        else:
+        if args.cirr_force_export or not dataset.has_targets:
             result = evaluate_cirr_and_dump(
                 model,
                 loader,
@@ -965,8 +1015,21 @@ def main():
             with open(cirr_output_json, "w", encoding="utf-8") as f:
                 json.dump(result, f, ensure_ascii=False)
             print(f"CIRR prediction file saved to: {cirr_output_json}")
+        elif cirr_metric == "subset_eval" or (cirr_metric == "recall_subset" and dataset.has_targets):
+            result = evaluate_cirr_subset(model, loader, device)
+            print("Dataset: CIRR/subset")
+            for key, value in result.items():
+                print(f"{key}: {value:.6f}")
+        elif cirr_metric == "recall" and dataset.has_targets:
+            result = evaluate_cirr_recall(model, loader, device)
+            print("Dataset: CIRR/recall")
+            for key, value in result.items():
+                print(f"{key}: {value:.6f}")
     else:
-        result = evaluate(model, loader, collection_name, device)
+        if args.exact_gallery:
+            result = evaluate_exact(model, loader, collection_name, device)
+        else:
+            result = evaluate(model, loader, collection_name, device)
         print(f"Dataset: {args.dataset}")
         for key, value in result.items():
             print(f"{key}: {value:.6f}")

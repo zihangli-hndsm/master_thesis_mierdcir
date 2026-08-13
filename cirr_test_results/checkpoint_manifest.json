@@ -1,0 +1,124 @@
+{
+  "protocol": "FOLLOWUP_EXPERIMENT_PLAN.md \u00a75.1: c* = argmax common-dev mAP (in_domain)",
+  "selection_data_used": "common-dev (MTCIR original text), pair_control/dev.jsonl",
+  "test_data_used_for_selection": "NO (test split frozen 2026-08-08, never seen during selection)",
+  "training_common": {
+    "method": "merdcir_mlp_alpha (model_method=cross_attn_alpha)",
+    "epochs": 3,
+    "batch_size": 300,
+    "backbone": "openai/clip-vit-base-patch32 (ViT-B/32)",
+    "data": "pair_control strict intersection (train 255400 / dev 10000 / test 10000)",
+    "text_field": "RAW=modification (MTCIR original), FIXED/MULTI=rewritten field per condition",
+    "validation": "every 300 steps + epoch end"
+  },
+  "checkpoints": {
+    "raw_s42": {
+      "condition": "raw",
+      "seed": 42,
+      "checkpoint": "checkpoints/topk_pair_raw_s42/topk_epoch_0002_step_000600_score_0.432042.pth.tar",
+      "checkpoint_sha256": "4f20bad5af411f89a42409aa1cdc42ac5f8280f763eac4b25243d421a4f74f3e",
+      "common_dev_mAP": 0.7171662394677398,
+      "selection_entry": {
+        "epoch": 2,
+        "step": 600,
+        "selection_score": 0.43204152388936545
+      }
+    },
+    "raw_s123": {
+      "condition": "raw",
+      "seed": 123,
+      "checkpoint": "checkpoints/topk_pair_raw_s123/topk_epoch_0002_step_000600_score_0.433568.pth.tar",
+      "checkpoint_sha256": "a9f69c36d81bdd6e819af4c5dc6adbddb6ce8e8aa80b4591aabdeb483c7edf0d",
+      "common_dev_mAP": 0.7163605866578883,
+      "selection_entry": {
+        "epoch": 2,
+        "step": 600,
+        "selection_score": 0.4335682510651536
+      }
+    },
+    "raw_s2025": {
+      "condition": "raw",
+      "seed": 2025,
+      "checkpoint": "checkpoints/topk_pair_raw_s2025/topk_epoch_0002_step_000600_score_0.434493.pth.tar",
+      "checkpoint_sha256": "ebd435edbbc3bdf7deb68c3e2383cd8261553f8e4b3e5afd03a0d1be4ee9968c",
+      "common_dev_mAP": 0.7171089210350905,
+      "selection_entry": {
+        "epoch": 2,
+        "step": 600,
+        "selection_score": 0.4344932262396327
+      }
+    },
+    "fixed_s42": {
+      "condition": "fixed",
+      "seed": 42,
+      "checkpoint": "checkpoints/topk_pair_fixed_s42/topk_epoch_0002_step_000600_score_0.424210.pth.tar",
+      "checkpoint_sha256": "be3a92b8516f2b81eb53ff8c5dca4d592127f1488c00f432b81ff8ce7603f058",
+      "common_dev_mAP": 0.6199352692185272,
+      "selection_entry": {
+        "epoch": 2,
+        "step": 600,
+        "selection_score": 0.42421010838502776
+      }
+    },
+    "fixed_s123": {
+      "condition": "fixed",
+      "seed": 123,
+      "checkpoint": "checkpoints/topk_pair_fixed_s123/topk_epoch_0002_step_000600_score_0.426339.pth.tar",
+      "checkpoint_sha256": "9037b7877c059d7daeb13beaa5a02ab25ad7550448fede0da3c9850e17776b24",
+      "common_dev_mAP": 0.6189063858460697,
+      "selection_entry": {
+        "epoch": 2,
+        "step": 600,
+        "selection_score": 0.426338991482865
+      }
+    },
+    "fixed_s2025": {
+      "condition": "fixed",
+      "seed": 2025,
+      "checkpoint": "checkpoints/topk_pair_fixed_s2025/topk_epoch_0002_step_000600_score_0.423249.pth.tar",
+      "checkpoint_sha256": "d1f6a30411ba5fdd717940c4eca281d4a888fed678d46b6622b006dfe9c371ae",
+      "common_dev_mAP": 0.6150309608187932,
+      "selection_entry": {
+        "epoch": 2,
+        "step": 600,
+        "selection_score": 0.4232488295756578
+      }
+    },
+    "multi_s42": {
+      "condition": "multi",
+      "seed": 42,
+      "checkpoint": "checkpoints/topk_pair_multi_s42/topk_epoch_0002_step_000600_score_0.441448.pth.tar",
+      "checkpoint_sha256": "6e7845e977049913312f84f97799f156566bb0b41b9f2de84df6a349a70cbb57",
+      "common_dev_mAP": 0.6919628918020172,
+      "selection_entry": {
+        "epoch": 2,
+        "step": 600,
+        "selection_score": 0.44144756023950804
+      }
+    },
+    "multi_s123": {
+      "condition": "multi",
+      "seed": 123,
+      "checkpoint": "checkpoints/topk_pair_multi_s123/topk_epoch_0002_step_000600_score_0.442584.pth.tar",
+      "checkpoint_sha256": "6f257b0aadd0dbf5e691d852bc1a23c183c9fa45d5b0ad1f0b891f75497ff44a",
+      "common_dev_mAP": 0.6897177631766044,
+      "selection_entry": {
+        "epoch": 2,
+        "step": 600,
+        "selection_score": 0.44258439037951947
+      }
+    },
+    "multi_s2025": {
+      "condition": "multi",
+      "seed": 2025,
+      "checkpoint": "checkpoints/topk_pair_multi_s2025/topk_epoch_0002_step_000600_score_0.440373.pth.tar",
+      "checkpoint_sha256": "b8864f1d5cb3d43d7c7c4be1556655df8c1bfa0b69dcf3a68feee4ca831a0e1b",
+      "common_dev_mAP": 0.6847190671895138,
+      "selection_entry": {
+        "epoch": 2,
+        "step": 600,
+        "selection_score": 0.44037314376624226
+      }
+    }
+  }
+}

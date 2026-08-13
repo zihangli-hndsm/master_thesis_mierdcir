@@ -46,6 +46,8 @@ def format_metrics(metrics):
 @torch.no_grad()
 def evaluate_full_ranking(model, loader, device, k_list=(1, 5, 10, 50), desc="Validation"):
     model.eval()
+    saved_checkpoint = getattr(model, "use_checkpoint", False)
+    model.use_checkpoint = False  # 验证不需要 checkpoint 重算(慢 4x),显存充足
     gallery_feats = []
     gallery_ids = []
     seen_ids = set()
@@ -103,6 +105,7 @@ def evaluate_full_ranking(model, loader, device, k_list=(1, 5, 10, 50), desc="Va
             "mAP": float(np.mean(aps)),
         }
     finally:
+        model.use_checkpoint = saved_checkpoint
         close_dataset_env(loader.dataset)
 
 
@@ -422,7 +425,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--method', type=str, default='merdcir_mlp_alpha',
                         choices=['mtcir_mlp_alpha', 'merdcir_no_alpha', 'merdcir_mlp_alpha',
-                                 'merdcir_cross_attn_alpha', 'lasco_mlp_alpha'])
+                                 'merdcir_cross_attn_alpha', 'lasco_mlp_alpha'],
+                        help='Training method/config key (merdcir_mlp_alpha, mtcir_mlp_alpha, ...)')
+    parser.add_argument('--backbone_size', type=str, default='B', choices=['B', 'L', 'H'],
+                        help='CLIP backbone size: B=ViT-B/32, L=ViT-L/14, H=ViT-H/14')
     parser.add_argument('--mtcir_json_path', type=str, default='mtcir_np/merged.jsonl')
     parser.add_argument('--merdcir_json_path', type=str, default='merdcir_np/test_train.jsonl')
     parser.add_argument('--lasco_json_path', type=str, default='LaSCo/captions/lasco_train.json')
@@ -448,6 +454,10 @@ if __name__ == "__main__":
     parser.add_argument('--training_log_path', type=str, default='./checkpoints/training_log.json')
     parser.add_argument('--topk_json_path', type=str, default='./checkpoints/topk_checkpoints.json')
     parser.add_argument('--topk_checkpoint_dir', type=str, default='./checkpoints/topk')
+    parser.add_argument('--eval_json_path', type=str, default=None,
+                        help='Override the eval JSONL path (defaults to method-specific path)')
+    parser.add_argument('--seed', type=int, default=42,
+                        help='Random seed for reproducibility across training runs')
     parser.add_argument('--resume_path', type=str, default='./checkpoints/checkpoint.pth.tar')
     parser.add_argument('--skip_cirr_validation', action='store_true')
     parser.add_argument(
@@ -464,6 +474,14 @@ if __name__ == "__main__":
         help='Keep alpha generator trainable during the joint stage.'
     )
     args = parser.parse_args()
+
+    # Set random seeds for reproducibility
+    random.seed(args.seed)
+    np.random.seed(args.seed)
+    torch.manual_seed(args.seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(args.seed)
+
     top_k = args.max_np // 2
     rand_k = args.max_np - top_k
     val_batch_size = args.val_batch_size or args.batch_size
@@ -506,8 +524,12 @@ if __name__ == "__main__":
     }
     selected_config = method_config[args.method]
     selected_lmdb_path = selected_config.get('lmdb_path', args.lmdb_path)
+    eval_json_path = args.eval_json_path or selected_config.get('eval_json_path', 'merdcir_np/eval/eval_subset.jsonl')
     dataset_kwargs = selected_config.get('dataset_kwargs', {})
-    model = ScheiCIR(method=selected_config['model_method'], temperature=args.temperature).to(device)
+    model = ScheiCIR(method=selected_config['model_method'], temperature=args.temperature,
+                     backbone_size=args.backbone_size).to(device)
+    if args.backbone_size in ('L', 'H'):
+        model.use_checkpoint = True  # 大 backbone:梯度 checkpointing 控制显存
     dataset = selected_config['dataset_cls'](
         data_path='./data',
         lmdb_path=selected_lmdb_path,
@@ -519,7 +541,7 @@ if __name__ == "__main__":
     evaluator = ScheiEvaluator(
         dbpath="./chroma_db",
         lmdb_path=selected_lmdb_path,
-        json_path=selected_config['eval_json_path'],
+        json_path=eval_json_path,
         dataset_cls=selected_config['dataset_cls'],
         **dataset_kwargs
     )
@@ -529,7 +551,7 @@ if __name__ == "__main__":
     in_domain_val_dataset = selected_config['dataset_cls'](
         data_path='./data',
         lmdb_path=selected_lmdb_path,
-        json_path=selected_config['eval_json_path'],
+        json_path=eval_json_path,
         **dataset_kwargs
     )
     in_domain_val_loader = DataLoader(
@@ -647,8 +669,18 @@ if __name__ == "__main__":
             nps_batch = batch['np']
             # 前向传播
             fused_feat, attn_map = model(ref_imgs, texts, return_attention=True)
-            target_feat = model.visual_backbone(target_imgs, get_embeddings=True)
-            ref_feat = model.visual_backbone(ref_imgs, get_embeddings=True)
+            # target/ref 视觉编码分段 checkpoint,避免 ViT-L 等大模型 attention 激活常驻显存
+            from torch.utils.checkpoint import checkpoint as _ckpt
+            target_feat = _ckpt(
+                lambda imgs: model.visual_backbone(imgs, get_embeddings=True),
+                target_imgs,
+                use_reentrant=False,
+            )
+            ref_feat = _ckpt(
+                lambda imgs: model.visual_backbone(imgs, get_embeddings=True),
+                ref_imgs,
+                use_reentrant=False,
+            )
             # --- 在循环外进行批处理 ---
             # 处理全局注意力图 (假设 model 返回的 attn 是 [B, Heads, Patches, Tokens])
             # 预先在 Head 维度取平均
@@ -788,7 +820,9 @@ if __name__ == "__main__":
                 logger.info(f"  Total Loss:   {total_loss.item():.4f}")
                 logger.info(f"  InfoNCE Loss: {infonce_loss.item():.4f}")
                 logger.info(f"  SC Loss:      {sc_loss.item():.8f}")
-            if current_step % 300 == 0:
+            if current_step % 300 == 0 or current_step == len(dataloader) - 1:
+                # validate every 300 steps AND at the end of each epoch, so small
+                # datasets (epoch < 300 steps) still produce checkpoints/metrics
                 checkpoint_data = {
                     'epoch': epoch,
                     'step': current_step,

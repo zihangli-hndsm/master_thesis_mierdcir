@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from torch.utils.checkpoint import checkpoint
 from transformers import CLIPImageProcessor, CLIPTokenizerFast, CLIPTextModel, CLIPModel
 from .interaction import CrossAttentionBlock, SelfAttentionBlock, AlphaGenerator, TransformerAlphaGenerator
 import torch.nn.functional as F
@@ -119,15 +120,15 @@ class ScheiCIR(nn.Module):
         if self.size == "B":
             self.text_dim = 512
             self.vision_dim = 768
-            self.patch_size = 7
+            self.patch_size = 7          # 224/32 patch grid
         elif self.size == "L":
             self.text_dim = 768
             self.vision_dim = 1024
-            self.patch_size = 14
+            self.patch_size = 16         # 224/14 patch grid
         else:  # H
             self.text_dim = 1024
             self.vision_dim = 1280
-            self.patch_size = 14
+            self.patch_size = 16         # 224/14 patch grid
         self.method = method
         self.temperature = temperature
         self.sc_temperature = 0.07
@@ -155,9 +156,14 @@ class ScheiCIR(nn.Module):
             else:
                 self.alpha_gen = AlphaGenerator(self.text_dim, self.vision_dim, self.patch_size)
 
+        self.use_checkpoint = False
+
     def forward(self, img, text, return_attention=False):
         # 1. 提取特征
-        img_feat = self.visual_backbone(img)  # (B, N, D)
+        if self.use_checkpoint:
+            img_feat = checkpoint(self.visual_backbone, img, use_reentrant=False)  # (B, N, D)
+        else:
+            img_feat = self.visual_backbone(img)  # (B, N, D)
         txt_feat = self.text_encoder(text)  # (B, M, D)
 
         # 2. 交互 (Attention)
