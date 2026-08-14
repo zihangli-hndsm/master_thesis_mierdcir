@@ -8,7 +8,7 @@ import os
 import hashlib
 import random
 
-BASE = os.path.dirname(os.path.abspath(__file__))
+BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT_DIR = os.path.join(BASE, "data/pair_control")
 os.makedirs(OUT_DIR, exist_ok=True)
 

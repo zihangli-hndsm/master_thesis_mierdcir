@@ -73,7 +73,7 @@ def parse_metric_stdout(stdout):
 
 
 def run_eval(args, output_path=None):
-    cmd = [sys.executable, "eval_checkpoint.py", *args]
+    cmd = [sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)), "eval_checkpoint.py"), *args]
     completed = subprocess.run(cmd, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     payload = {
         "command": cmd,

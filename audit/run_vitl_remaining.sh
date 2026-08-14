@@ -20,7 +20,7 @@ run_training() {
         return 0
     fi
     echo "[$(date '+%F %T')] START: ${TAG} backbone=${BACKBONE} batch=${BATCH} seed=${SEED}"
-    $PYTHON train.py \
+    $PYTHON scripts/train.py \
         --method merdcir_mlp_alpha \
         --lmdb_path ./data/MTCIR/images_224_lmdb \
         --eval_json_path pair_control/dev.jsonl \

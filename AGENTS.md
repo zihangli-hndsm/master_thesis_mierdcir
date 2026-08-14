@@ -10,16 +10,18 @@ The core contribution is **ScheiCIR**, a CLIP-based model that uses cross-attent
 
 ```text
 final_thesis/
-├── train.py                          # Main training loop (3-stage warmup + joint)
-├── eval_checkpoint.py                # Single-checkpoint evaluation on CIR datasets
-├── evaluate_topk_checkpoints.py      # Batch eval: every .pth.tar in checkpoints/topk*/
-├── eval.py                           # ScheiEvaluator helper (lightweight ChromaDB wrapper)
-├── visualize_attention.py            # NP-level spatial attention map overlay
-├── app.py                            # Gradio human-evaluation app
-├── analyze_human_rating_results.py   # CSV→PDF analysis for human annotations
-├── gen_np.py                         # Extract noun phrases via benepar+spaCy→CLIP spans
-├── split_for.py                      # Split a large JSONL into N shards
-├── run_all.sh                        # Launch gen_np.py on 12 JSONL shards in parallel
+├── scripts/                          # Entry-point scripts and launchers
+│   ├── train.py                      # Main training loop (3-stage warmup + joint)
+│   ├── eval_checkpoint.py            # Single-checkpoint evaluation on CIR datasets
+│   ├── evaluate_topk_checkpoints.py  # Batch eval: every .pth.tar in checkpoints/topk*/
+│   ├── eval.py                       # ScheiEvaluator helper (lightweight ChromaDB wrapper)
+│   ├── visualize_attention.py        # NP-level spatial attention map overlay
+│   ├── app.py                        # Gradio human-evaluation app
+│   ├── analyze_human_rating_results.py  # CSV→PDF analysis for human annotations
+│   ├── gen_np.py                     # Extract noun phrases via benepar+spaCy→CLIP spans
+│   ├── split_for.py                  # Split a large JSONL into N shards
+│   └── run_all.sh                    # Launch gen_np.py on 12 JSONL shards in parallel
+├── docs/                             # Notes, guidelines, and experiment reports
 ├── models/
 │   ├── full_model.py                 # VisionEncoder, TextEncoder, AttentionPooler, ScheiCIR
 │   └── interaction.py                # CrossAttentionBlock, AlphaGenerator, TransformerAlphaGenerator
@@ -134,7 +136,7 @@ python -m benepar.download benepar_en3
 
 ```bash
 # MerdCIR MLP Alpha (most common)
-python train.py \
+python scripts/train.py \
   --method merdcir_mlp_alpha \
   --merdcir_json_path merdcir_np/test_train.jsonl \
   --lmdb_path ./data/MTCIR/images_224_lmdb \
@@ -159,7 +161,7 @@ Key training arguments:
 
 ```bash
 # Evaluate one checkpoint on a specific dataset:
-python eval_checkpoint.py \
+python scripts/eval_checkpoint.py \
   --checkpoint checkpoints/topk_merdcir_mlp/topk_epoch_0003_step_000900_score_0.483130.pth.tar \
   --dataset MTCIR \
   --method cross_attn_alpha
@@ -167,24 +169,24 @@ python eval_checkpoint.py \
 # Supported --dataset: MTCIR, MerdCIR, CIRR, FashionIQ
 
 # CIRR requires --cirr-metric recall or recall_subset
-python eval_checkpoint.py \
+python scripts/eval_checkpoint.py \
   --checkpoint <path> --dataset CIRR --method cross_attn_alpha \
   --cirr-metric recall --output-json checkpoints/topk/cirr_recall.json
 
 # Batch evaluate all top-k folders:
-python evaluate_topk_checkpoints.py --checkpoint-root checkpoints
+python scripts/evaluate_topk_checkpoints.py --checkpoint-root checkpoints
 ```
 
-After batch evaluation, the Markdown table is written to `checkpoint_eval_results.md`.
+After batch evaluation, the Markdown table is written to `docs/checkpoint_eval_results.md`.
 
 ### Noun Phrase Extraction
 
 ```bash
 # Single file
-python gen_np.py --input-jsonl data/MTCIR/mtcir.jsonl --output-jsonl output_nps.jsonl
+python scripts/gen_np.py --input-jsonl data/MTCIR/mtcir.jsonl --output-jsonl output_nps.jsonl
 
 # 12-way parallel on shards (edit run_all.sh to adjust paths)
-bash run_all.sh
+bash scripts/run_all.sh
 ```
 
 ### VLM Rewriting (MTCIR → MerdCIR)
@@ -203,13 +205,13 @@ Uses vLLM with AWQ quantization. Requires `vllm` installed.
 ### Human Evaluation App
 
 ```bash
-python app.py --samples samples.json --server-port 7860
+python scripts/app.py --samples samples.json --server-port 7860
 # or with annotator preset:
-python app.py --samples samples.json --annotator Annotator_1
+python scripts/app.py --samples samples.json --annotator Annotator_1
 
 # Shell wrappers:
-bash run_annotator_1.sh
-bash run_annotator_2.sh
+bash scripts/run_annotator_1.sh
+bash scripts/run_annotator_2.sh
 ```
 
 The app:
@@ -221,7 +223,7 @@ The app:
 ### Analyze Human Ratings
 
 ```bash
-python analyze_human_rating_results.py
+python scripts/analyze_human_rating_results.py
 ```
 
 Reads CSVs from `human_rating_results/`, produces:
@@ -233,7 +235,7 @@ Reads CSVs from `human_rating_results/`, produces:
 ### Attention Visualization
 
 ```bash
-python visualize_attention.py \
+python scripts/visualize_attention.py \
   --id <SAMPLE_ID> \
   --checkpoint checkpoints/topk_merdcir_cross_attn/topk_epoch_0003_step_000900_score_0.483130.pth.tar \
   --text-source merdcir \
@@ -256,15 +258,15 @@ External Datasets (CIRR, FashionIQ, MTCIR, LaSCo)
   ↓ save_lmdb.py → images_224_lmdb/
   ↓
 MTCIR.jsonl
-  ↓ rewrite_pipeline.py (VLM: Qwen3-27B)
+  ↓ scripts/rewrite_pipeline.py (VLM: Qwen3-27B)
 MerdCIR (rewritten JSONL)
-  ↓ gen_np.py (benepar + spaCy)
+  ↓ scripts/gen_np.py (benepar + spaCy)
 mtcir_np/ & merdcir_np/ (JSONL with NP spans)
-  ↓ train.py
+  ↓ scripts/train.py
 checkpoints/
-  ↓ eval_checkpoint.py
-  ↓ evaluate_topk_checkpoints.py
-Metrics (JSON) + checkpoint_eval_results.md
+  ↓ scripts/eval_checkpoint.py
+  ↓ scripts/evaluate_topk_checkpoints.py
+Metrics (JSON) + docs/checkpoint_eval_results.md
 ```
 
 ## JSONL Record Format
@@ -309,7 +311,7 @@ NP spans are 1-based inclusive CLIP token positions.
 
 ## Top-k Checkpoint Results (Baseline)
 
-From `checkpoint_eval_results.md`, best MerdCIR results on the evaluation set:
+From `docs/checkpoint_eval_results.md`, best MerdCIR results on the evaluation set:
 
 | Method | MTCIR R@1 | MTCIR R@10 | MerdCIR R@1 | FashionIQ R@1 |
 |--------|-----------|------------|-------------|---------------|

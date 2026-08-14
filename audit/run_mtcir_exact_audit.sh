@@ -20,7 +20,7 @@ METHOD="cross_attn_alpha"
 run_eval() {
     local TAG=$1 CKPT=$2 SPLIT=$3 BS=$4
     echo "=== $TAG ===" | tee -a "$LOG"
-    $PYTHON eval_checkpoint.py \
+    $PYTHON scripts/eval_checkpoint.py \
         --checkpoint "$CKPT" --dataset MTCIR --method "$METHOD" \
         --eval-json-path "$SPLIT" --batch-size "$BS" --exact-gallery 2>&1 | tee -a "$LOG"
 }

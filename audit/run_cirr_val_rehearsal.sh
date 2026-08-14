@@ -21,31 +21,31 @@ log "=== CIRR val rehearsal start (checkpoint: $(basename $CKPT)) ==="
 
 # 1. Direct local evaluation (reference numbers, §5 comparison target)
 log "--- direct recall eval (batch 128) ---"
-$PYTHON eval_checkpoint.py --checkpoint "$CKPT" --dataset CIRR --method "$METHOD" \
+$PYTHON scripts/eval_checkpoint.py --checkpoint "$CKPT" --dataset CIRR --method "$METHOD" \
     --cirr-metric recall --cirr-json-path cap.rc2.val.json 2>&1 | tee -a "$LOG"
 log "--- direct subset eval (batch 128) ---"
-$PYTHON eval_checkpoint.py --checkpoint "$CKPT" --dataset CIRR --method "$METHOD" \
+$PYTHON scripts/eval_checkpoint.py --checkpoint "$CKPT" --dataset CIRR --method "$METHOD" \
     --cirr-metric recall_subset --cirr-json-path cap.rc2.val.json 2>&1 | tee -a "$LOG"
 
 # 2. Exporter on val with labels (force export), batch 128
 log "--- export val recall (batch 128) ---"
-$PYTHON eval_checkpoint.py --checkpoint "$CKPT" --dataset CIRR --method "$METHOD" \
+$PYTHON scripts/eval_checkpoint.py --checkpoint "$CKPT" --dataset CIRR --method "$METHOD" \
     --cirr-metric recall --cirr-force-export --cirr-json-path cap.rc2.val.json \
     --output-json "$OUTDIR/val_rehearsal_recall_bs128.json" 2>&1 | tee -a "$LOG"
 log "--- export val recall_subset (batch 128) ---"
-$PYTHON eval_checkpoint.py --checkpoint "$CKPT" --dataset CIRR --method "$METHOD" \
+$PYTHON scripts/eval_checkpoint.py --checkpoint "$CKPT" --dataset CIRR --method "$METHOD" \
     --cirr-metric recall_subset --cirr-force-export --cirr-json-path cap.rc2.val.json \
     --output-json "$OUTDIR/val_rehearsal_recall_subset_bs128.json" 2>&1 | tee -a "$LOG"
 
 # 3. Batch-size invariance: re-export with batch 64
 log "--- export val recall (batch 64) ---"
-$PYTHON eval_checkpoint.py --checkpoint "$CKPT" --dataset CIRR --method "$METHOD" \
+$PYTHON scripts/eval_checkpoint.py --checkpoint "$CKPT" --dataset CIRR --method "$METHOD" \
     --cirr-metric recall --cirr-force-export --cirr-json-path cap.rc2.val.json --batch-size 64 \
     --output-json "$OUTDIR/val_rehearsal_recall_bs64.json" 2>&1 | tee -a "$LOG"
 
 # 4. Recompute metrics from exported JSONs with target_hard GT
 log "--- recompute from exported JSONs ---"
-$PYTHON compute_cirr_metrics.py --gt data/CIRR/cap.rc2.val.json \
+$PYTHON scripts/compute_cirr_metrics.py --gt data/CIRR/cap.rc2.val.json \
     --pred-dir "$OUTDIR" 2>&1 | tee -a "$LOG"
 
 log "=== CIRR val rehearsal complete ==="

@@ -45,7 +45,7 @@ run_training() {
     log "  Seed: ${SEED}"
     log "============================================================"
 
-    $PYTHON train.py \
+    $PYTHON scripts/train.py \
         $COMMON_ARGS \
         --merdcir_json_path "${TRAIN_JSON}" \
         --topk_checkpoint_dir "${CKPT_DIR}" \

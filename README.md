@@ -17,7 +17,7 @@ Large datasets, model checkpoints, generated JSON/JSONL files, Chroma databases,
 
 Code in this repository is released under the MIT License. See `LICENSE`.
 
-Third-party datasets are not redistributed in this repository. Generated data created by this project is intended to be released under CC BY 4.0 where the project author controls the relevant rights. See `DATASET_NOTICE.md` and `GENERATED_DATA_LICENSE.md`.
+Third-party datasets are not redistributed in this repository. Generated data created by this project is intended to be released under CC BY 4.0 where the project author controls the relevant rights. See `docs/DATASET_NOTICE.md` and `docs/GENERATED_DATA_LICENSE.md`.
 
 Training images used with this project come from the LLaVA-pretrain dataset available on Hugging Face. LLaVA-pretrain is a subset of Google's Conceptual Captions 3M (CC3M), and may contain harmful or sensitive content. Treat local datasets as uncurated web-scale data and apply appropriate safety review before use or sharing.
 
@@ -25,16 +25,19 @@ Training images used with this project come from the LLaVA-pretrain dataset avai
 
 ```text
 .
-├── app.py                         # Local Gradio app for human evaluation
-├── train.py                       # Main training script
-├── eval.py                        # Evaluation helper
-├── eval_checkpoint.py             # Checkpoint evaluation on CIR datasets
-├── evaluate_topk_checkpoints.py   # Batch evaluation for top-k checkpoints
-├── visualize_attention.py         # Attention visualization script
-├── analyze_human_rating_results.py
-├── data/                          # Dataset code and preprocessing utilities
-├── models/                        # Model and interaction modules
-├── *.md                           # Notes, guidelines, and experiment reports
+├── scripts/                      # Entry-point scripts and launchers
+│   ├── train.py                  # Main training script
+│   ├── eval.py                   # Evaluation helper
+│   ├── eval_checkpoint.py        # Checkpoint evaluation on CIR datasets
+│   ├── evaluate_topk_checkpoints.py   # Batch evaluation for top-k checkpoints
+│   ├── visualize_attention.py    # Attention visualization script
+│   ├── analyze_human_rating_results.py
+│   ├── app.py                    # Local Gradio app for human evaluation
+│   └── run_*.sh / eval_*.sh      # Launcher scripts
+├── docs/                         # Notes, guidelines, and experiment reports
+├── data/                         # Dataset code and preprocessing utilities
+├── models/                       # Model and interaction modules
+├── audit/                        # Audit scripts and reports
 └── requirements.txt
 ```
 
@@ -60,9 +63,9 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-The repository includes one broad `requirements.txt` for the main training, evaluation, visualization, and annotation workflows. For CUDA-specific PyTorch installation or optional VLM rewriting with `vllm`, see the notes in `REPRODUCE.md`.
+The repository includes one broad `requirements.txt` for the main training, evaluation, visualization, and annotation workflows. For CUDA-specific PyTorch installation or optional VLM rewriting with `vllm`, see the notes in `docs/REPRODUCE.md`.
 
-For dataset restoration, LMDB creation, training, and evaluation commands, see `REPRODUCE.md`.
+For dataset restoration, LMDB creation, training, and evaluation commands, see `docs/REPRODUCE.md`.
 
 Tested environment:
 
@@ -77,31 +80,31 @@ GPU: NVIDIA A100
 Run training:
 
 ```bash
-python train.py
+python scripts/train.py
 ```
 
 Evaluate a checkpoint:
 
 ```bash
-python eval_checkpoint.py --help
+python scripts/eval_checkpoint.py --help
 ```
 
 Evaluate top-k checkpoints:
 
 ```bash
-python evaluate_topk_checkpoints.py --help
+python scripts/evaluate_topk_checkpoints.py --help
 ```
 
 Start the human-evaluation app:
 
 ```bash
-python app.py
+python scripts/app.py
 ```
 
 Generate attention visualizations:
 
 ```bash
-python visualize_attention.py --help
+python scripts/visualize_attention.py --help
 ```
 
 ## Data And Checkpoints

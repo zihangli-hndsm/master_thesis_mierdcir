@@ -36,7 +36,7 @@ run_training() {
         return 0
     fi
     echo "[$(date '+%F %T')] START: ${TAG} seed=${SEED} backbone=${BACKBONE} batch=${BATCH}"
-    $PYTHON train.py \
+    $PYTHON scripts/train.py \
         $COMMON_ARGS \
         --merdcir_json_path "${TRAIN_JSON}" \
         --topk_checkpoint_dir "${CKPT_DIR}" \

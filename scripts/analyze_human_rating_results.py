@@ -18,7 +18,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 from PIL import Image
 
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[1]
 RESULTS_DIR = ROOT / "human_rating_results"
 SAMPLES_PATH = ROOT / "samples.json"
 ANNOTATORS = ("Annotator_1", "Annotator_2")

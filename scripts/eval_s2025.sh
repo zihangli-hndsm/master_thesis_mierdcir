@@ -45,25 +45,25 @@ eval_condition() {
     log "Selected checkpoint: $CKPT"
 
     log "Evaluating: $CKPT on MTCIR"
-    $PYTHON eval_checkpoint.py \
+    $PYTHON scripts/eval_checkpoint.py \
         --checkpoint "$CKPT" --dataset MTCIR --method "$METHOD" \
         --eval-json-path pair_control/test.jsonl 2>&1 | tee -a "$EVAL_LOG"
 
     log "Evaluating: $CKPT on MerdCIR"
-    $PYTHON eval_checkpoint.py \
+    $PYTHON scripts/eval_checkpoint.py \
         --checkpoint "$CKPT" --dataset MerdCIR --method "$METHOD" 2>&1 | tee -a "$EVAL_LOG"
 
     log "Evaluating: $CKPT on FashionIQ"
-    $PYTHON eval_checkpoint.py \
+    $PYTHON scripts/eval_checkpoint.py \
         --checkpoint "$CKPT" --dataset FashionIQ --method "$METHOD" 2>&1 | tee -a "$EVAL_LOG"
 
     log "Evaluating: $CKPT on CIRR (val recall)"
-    $PYTHON eval_checkpoint.py \
+    $PYTHON scripts/eval_checkpoint.py \
         --checkpoint "$CKPT" --dataset CIRR --method "$METHOD" \
         --cirr-metric recall --cirr-json-path cap.rc2.val.json 2>&1 | tee -a "$EVAL_LOG"
 
     log "Evaluating: $CKPT on CIRR (val recall_subset)"
-    $PYTHON eval_checkpoint.py \
+    $PYTHON scripts/eval_checkpoint.py \
         --checkpoint "$CKPT" --dataset CIRR --method "$METHOD" \
         --cirr-metric recall_subset --cirr-json-path cap.rc2.val.json 2>&1 | tee -a "$EVAL_LOG"
 }

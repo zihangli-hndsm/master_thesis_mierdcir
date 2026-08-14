@@ -1,4 +1,9 @@
 import random
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from eval import ScheiEvaluator
 import logging
 from tqdm import tqdm
@@ -9,7 +14,6 @@ from models.full_model import ScheiCIR
 from data.dataset import MTCIRDataset, MerdCIRDataset, LaSCoDataset
 import argparse
 import torch.nn.functional as F
-import os
 import datetime
 import json
 import shutil

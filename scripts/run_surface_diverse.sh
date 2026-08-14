@@ -52,7 +52,7 @@ $PYTHON "$BASE_DIR/gen_np.py" \
 
 # Step 3: Exploratory training (1 seed) on Surface-Diverse corpus
 log "STEP 3: Training (exploratory, seed=${SEED})"
-$PYTHON train.py \
+$PYTHON scripts/train.py \
     --method merdcir_mlp_alpha \
     --lmdb_path ./data/MTCIR/images_224_lmdb \
     --cirr_data_path ./data/CIRR \

@@ -25,10 +25,10 @@ print(m["checkpoints"]["$COND"]["checkpoint"])
 PYEOF
 )
     echo "=== ${COND} MTCIR (exact) ===" | tee -a "$LOG"
-    $PYTHON eval_checkpoint.py --checkpoint "$CKPT" --dataset MTCIR --method "$METHOD" \
+    $PYTHON scripts/eval_checkpoint.py --checkpoint "$CKPT" --dataset MTCIR --method "$METHOD" \
         --eval-json-path pair_control/test.jsonl --exact-gallery 2>&1 | grep -E "Dataset:|Recall|mAP" | tee -a "$LOG"
     echo "=== ${COND} MerdCIR (exact) ===" | tee -a "$LOG"
-    $PYTHON eval_checkpoint.py --checkpoint "$CKPT" --dataset MerdCIR --method "$METHOD" \
+    $PYTHON scripts/eval_checkpoint.py --checkpoint "$CKPT" --dataset MerdCIR --method "$METHOD" \
         --exact-gallery 2>&1 | grep -E "Dataset:|Recall|mAP" | tee -a "$LOG"
 done
 echo "[$(date '+%F %T')] exact re-eval complete" | tee -a "$LOG"

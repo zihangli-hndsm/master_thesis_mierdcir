@@ -29,7 +29,7 @@ eval_checkpoint() {
     local EXTRA_ARGS=$5
 
     log "  Evaluating: $CKPT on $DATASET"
-    $PYTHON eval_checkpoint.py \
+    $PYTHON scripts/eval_checkpoint.py \
         --checkpoint "$CKPT" \
         --dataset "$DATASET" \
         --method "$METHOD" \

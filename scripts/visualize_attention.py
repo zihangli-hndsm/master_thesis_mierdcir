@@ -14,12 +14,16 @@ Example:
 
 from __future__ import annotations
 
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import argparse
 import glob
 import json
 import math
 import re
-import sys
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 

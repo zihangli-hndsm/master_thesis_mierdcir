@@ -28,7 +28,7 @@ def triplet_key(rec):
     return (rec.get("image", ""), rec.get("target_img", ""))
 
 def main():
-    base = os.path.dirname(os.path.abspath(__file__))
+    base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     
     # Paths
     raw_path = os.path.join(base, "data/mtcir_np/merged.jsonl")

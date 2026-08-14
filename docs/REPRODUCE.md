@@ -2,7 +2,7 @@
 
 This guide documents the expected local setup for reproducing the thesis experiments. Large datasets, LMDB stores, checkpoints, generated JSON/JSONL files, plots, and logs are intentionally not committed to git.
 
-Before restoring datasets, read `DATASET_NOTICE.md`. Third-party datasets are not redistributed by this repository. Generated data created by this project is intended to be released under CC BY 4.0 where permitted, but users must still comply with source dataset terms.
+Before restoring datasets, read `docs/DATASET_NOTICE.md`. Third-party datasets are not redistributed by this repository. Generated data created by this project is intended to be released under CC BY 4.0 where permitted, but users must still comply with source dataset terms.
 
 ## 1. Environment
 
@@ -99,7 +99,7 @@ The generated `images_224_lmdb/`, `images_val_224_lmdb/`, and `images_test_224_l
 Generate noun-phrase annotations when needed:
 
 ```bash
-python gen_np.py \
+python scripts/gen_np.py \
   --input-jsonl data/MTCIR/mtcir.jsonl \
   --output-jsonl output_nps.jsonl
 ```
@@ -107,7 +107,7 @@ python gen_np.py \
 Split a large JSONL into shards:
 
 ```bash
-python split_for.py \
+python scripts/split_for.py \
   --input-jsonl data/rewrite.jsonl \
   --num-splits 12 \
   --output-dir .
@@ -136,7 +136,7 @@ python data/split_merdcir_np.py \
 Example MerdCIR training command:
 
 ```bash
-python train.py \
+python scripts/train.py \
   --method merdcir_mlp_alpha \
   --merdcir_json_path merdcir_np/test_train.jsonl \
   --lmdb_path ./data/MTCIR/images_224_lmdb \
@@ -154,7 +154,7 @@ Checkpoints and training logs are generated under ignored local directories.
 Evaluate a checkpoint on MTCIR:
 
 ```bash
-python eval_checkpoint.py \
+python scripts/eval_checkpoint.py \
   --checkpoint checkpoints/topk_merdcir_mlp/example.pth.tar \
   --dataset MTCIR \
   --method cross_attn_alpha \
@@ -164,7 +164,7 @@ python eval_checkpoint.py \
 Evaluate on CIRR:
 
 ```bash
-python eval_checkpoint.py \
+python scripts/eval_checkpoint.py \
   --checkpoint checkpoints/topk_merdcir_mlp/example.pth.tar \
   --dataset CIRR \
   --method cross_attn_alpha \
@@ -175,7 +175,7 @@ python eval_checkpoint.py \
 Evaluate all top-k checkpoint folders:
 
 ```bash
-python evaluate_topk_checkpoints.py --checkpoint-root checkpoints
+python scripts/evaluate_topk_checkpoints.py --checkpoint-root checkpoints
 ```
 
 ## 7. Human Evaluation And Visualization
@@ -183,13 +183,13 @@ python evaluate_topk_checkpoints.py --checkpoint-root checkpoints
 Run the human-evaluation app:
 
 ```bash
-python app.py --samples samples.json --server-port 7860
+python scripts/app.py --samples samples.json --server-port 7860
 ```
 
 Generate an attention visualization:
 
 ```bash
-python visualize_attention.py \
+python scripts/visualize_attention.py \
   --samples samples.json \
   --checkpoint checkpoints/topk_merdcir_mlp/example.pth.tar \
   --id SAMPLE_ID \

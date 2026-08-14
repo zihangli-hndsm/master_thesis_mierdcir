@@ -21,7 +21,7 @@ $PY "$PROJ/data/rewrite_single_prompt.py" \
     2>&1 | tee "$OUT_DIR/rewrite.log"
 
 echo "=== Step 2: Extract noun phrases ==="
-$PY "$PROJ/gen_np.py" \
+$PY "$PROJ/scripts/gen_np.py" \
     --input-jsonl "$OUT_DIR/${PART}_rewritten.jsonl" \
     --output-jsonl "$OUT_DIR/${PART}_nps.jsonl" \
     --batch-size 2048 \
