@@ -8,15 +8,15 @@ if [ -z "$INPUT" ]; then
     exit 1
 fi
 
-# 输出文件
+# Output file paths.
 SAMPLE="sample_10p.jsonl"
 REST="rest_90p.jsonl"
 
-# 清空旧文件
+# Truncate previous outputs before writing this split.
 > "$SAMPLE"
 > "$REST"
 
-# 随机抽样
+# Sample records randomly for the rewrite subset.
 awk -v seed="$SEED" '
 BEGIN {
     srand(seed)

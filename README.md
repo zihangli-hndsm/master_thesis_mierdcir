@@ -1,6 +1,6 @@
 # Final Thesis: Composed Image Retrieval Experiments
 
-This repository contains code, notes, and evaluation utilities for thesis experiments on composed image retrieval (CIR), including MTCIR, MerdCIR, CIRR, FashionIQ, and LaSCo workflows.
+This repository contains code, notes, and evaluation utilities for thesis experiments on composed image retrieval (CIR), including MTCIR, MiERDCIR, CIRR, FashionIQ, and LaSCo workflows.
 
 The project includes:
 

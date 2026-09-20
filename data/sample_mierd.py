@@ -19,7 +19,7 @@ with open(input_path, "r", encoding="utf-8") as f:
 
         scenario = data.get("merdcir_intent_scenario")
 
-        # 跳过没有该字段的样本
+        # Skip records missing the required field.
         if scenario is None:
             continue
 
@@ -27,7 +27,7 @@ with open(input_path, "r", encoding="utf-8") as f:
 
 random.shuffle(samples)
 
-# 用于记录已经收集到的 scenario
+# Track scenarios that have already been selected.
 collected = {}
 
 for data in samples:
@@ -36,13 +36,13 @@ for data in samples:
 
     scenario = data["merdcir_intent_scenario"]
 
-    # 每种 scenario 只保留一个样本
+    # Keep one sample per scenario.
     if scenario not in collected:
         collected[scenario] = data
 
-# 写入新的 jsonl 文件
+# Write the sampled records to a new JSONL file.
 with open(output_path, "w", encoding="utf-8") as f:
     for sample in collected.values():
         f.write(json.dumps(sample, ensure_ascii=False) + "\n")
 
-print(f"已保存 {len(collected)} 个不同 scenario 的样本到 {output_path}")
+print(f"Saved {len(collected)} scenario-diverse samples to {output_path}")

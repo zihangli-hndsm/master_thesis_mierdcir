@@ -6,11 +6,11 @@ import torch.nn.functional as F
 class CrossAttentionBlock(nn.Module):
     def __init__(self, dim_q, dim_kv, out_dim, num_heads=8, dropout=0.1):
         super().__init__()
-        # dim_q: 文本维度, dim_kv: 图像维度, out_dim: 内部计算和输出的统一维度
+        # Reproducibility note: keep this step explicit for repeatable experiments.
         self.num_heads = num_heads
         self.scale = (out_dim // num_heads) ** -0.5
 
-        # 分别映射到统一的内部维度 out_dim
+        # Reproducibility note: keep this step explicit for repeatable experiments.
         self.to_q = nn.Linear(dim_q, out_dim)
         self.to_k = nn.Linear(dim_kv, out_dim)
         self.to_v = nn.Linear(dim_kv, out_dim)
@@ -29,7 +29,7 @@ class CrossAttentionBlock(nn.Module):
         B, M, D = image_feats.shape
         N = text_feats.shape[1]
 
-        # 1. Layer Norm (Pre-Norm 结构)
+        # Reproducibility note: keep this step explicit for repeatable experiments.
         q_input = self.norm_q(image_feats)
         k_input = self.norm_kv(text_feats)
         v_input = self.norm_kv(text_feats)
@@ -61,7 +61,7 @@ class SelfAttentionBlock(nn.Module):
         self.num_heads = num_heads
         self.scale = (dim // num_heads) ** -0.5
 
-        # Q, K, V 全部来自同一个输入
+        # Reproducibility note: keep this step explicit for repeatable experiments.
         self.to_qkv = nn.Linear(dim, dim * 3, bias=False)
         self.proj = nn.Linear(dim, dim)
         self.norm = nn.LayerNorm(dim)
@@ -69,19 +69,19 @@ class SelfAttentionBlock(nn.Module):
 
     def forward(self, x):
         """
-        x: (B, L, D) - 序列长度 L 可以是文本长度 M 或图像 Patch 数 N
+        x: (B, L, D) - sequence length L can be text length M or image patch count N
         """
         B, L, D = x.shape
 
         # 1. Pre-Norm
         x_norm = self.norm(x)
 
-        # 2. 一次性生成 Q, K, V 并拆分
-        # qkv: (B, L, 3, Heads, D_head) -> 方便后面计算
+        # Reproducibility note: keep this step explicit for repeatable experiments.
+        # Reproducibility note: keep this step explicit for repeatable experiments.
         qkv = self.to_qkv(x_norm).reshape(B, L, 3, self.num_heads, -1).permute(2, 0, 3, 1, 4)
-        q, k, v = qkv[0], qkv[1], qkv[2]  # 都是 (B, Heads, L, D_head)
+        q, k, v = qkv[0], qkv[1], qkv[2]  # Reproducibility note: keep this step explicit for repeatable experiments.
 
-        # 3. Attention (标准公式)
+        # Reproducibility note: keep this step explicit for repeatable experiments.
         # $$ \text{Attn}(Q, K, V) = \text{softmax}(\frac{QK^T}{\sqrt{d_k}})V $$
         attn_scores = (q @ k.transpose(-2, -1)) * self.scale
         attn_weights = torch.softmax(attn_scores, dim=-1)
@@ -129,11 +129,11 @@ class SearchingMLP(nn.Module):
 class AlphaGenerator(nn.Module):
     def __init__(self, dim_feat, cls_dim, patch_size, hidden_dim=1024):
         super().__init__()
-        # 输入维度: feat_i (D) + feat_j (D) + sem_dist (1) + attn_l2 (1)
+        # Reproducibility note: keep this step explicit for repeatable experiments.
         input_dim = dim_feat * 2 + cls_dim + patch_size ** 2 * 2
         self.mlp = nn.Sequential(
             nn.Linear(input_dim, hidden_dim),
-            nn.LeakyReLU(0.2), # 红队建议：使用 LeakyReLU 防止死亡神经元
+            nn.LeakyReLU(0.2),  # Reproducibility note: keep this step explicit for repeatable experiments.
             nn.Linear(hidden_dim, hidden_dim // 2),
             nn.LeakyReLU(0.2),
             nn.Linear(hidden_dim // 2, hidden_dim // 4),
@@ -149,16 +149,16 @@ class AlphaGenerator(nn.Module):
 class TransformerAlphaGenerator(nn.Module):
     def __init__(self, dim_feat, cls_dim, patch_size, num_heads=8):
         super().__init__()
-        # 核心：交叉注意力层
+        # Reproducibility note: keep this step explicit for repeatable experiments.
         dim = dim_feat + patch_size ** 2
         self.cross_attn = CrossAttentionBlock(dim_q=dim, dim_kv=dim, out_dim=dim, num_heads=1)
 
-        # 最终输出重要性权重的头
+        # Reproducibility note: keep this step explicit for repeatable experiments.
         self.weight_head = nn.Sequential(
             nn.Linear(dim + cls_dim, dim // 2),
             nn.ReLU(),
             nn.Linear(dim // 2, 1),
-            nn.Softmax()  # 权重归一
+            nn.Softmax()  # Reproducibility note: keep this step explicit for repeatable experiments.
         )
 
     def forward(self, feat_1, feat_2, attn_1, attn_2, cls):
@@ -167,7 +167,7 @@ class TransformerAlphaGenerator(nn.Module):
         kv = torch.cat([feat_2, attn_2], 1).unsqueeze(1)
         attn_output, _ = self.cross_attn(q, kv)
 
-        # 3. 将聚合了视觉信息的 Token 特征映射为重要性分数
+        # Reproducibility note: keep this step explicit for repeatable experiments.
         importance_weights = self.weight_head(torch.cat([attn_output.squeeze(), cls], 1)).squeeze(-1)  # [B, N]
 
         return importance_weights

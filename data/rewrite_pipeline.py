@@ -1,9 +1,9 @@
 import os
 import sys
 
-# 假设你的 conda 环境路径
+# Conda environment path used by the local reproduction setup.
 conda_lib = os.path.join(os.environ['CONDA_PREFIX'], 'lib')
-# 强制插入系统路径的第一位
+# Prepend the environment site-packages path for consistent imports.
 os.environ['LD_LIBRARY_PATH'] = f"{conda_lib}:{os.environ.get('LD_LIBRARY_PATH', '')}"
 import json
 import logging

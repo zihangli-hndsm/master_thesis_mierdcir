@@ -19,25 +19,25 @@ from tqdm import tqdm
 
 
 def create_lmdb(image_root, output_path):
-    # 估算地图大小（50GB 足够 500k 张 224 图片）
+    # Estimate LMDB map size for roughly 500k resized 224px images.
     # Increase this if LMDB raises MDB_MAP_FULL for a larger local dataset.
     map_size = 50 * 1024 * 1024 * 1024 
     env = lmdb.open(output_path, map_size=map_size)
 
     with env.begin(write=True) as txn:
-        # 遍历你的数字文件夹结构
+        # Traverse numeric image subdirectories.
         for subdir in tqdm(os.listdir(image_root)):
             subdir_path = os.path.join(image_root, subdir)
             if not os.path.isdir(subdir_path): continue
             
             for img_name in os.listdir(subdir_path):
                 img_path = os.path.join(subdir_path, img_name)
-                # key 存为 "文件夹/文件名"，例如 "001/123.jpg"
+                # Store keys as "folder/file", for example "001/123.jpg".
                 # This key format must match the `reference_path` and
                 # `target_path` values in the MTCIR/MerdCIR JSONL files.
                 key = f"{subdir}/{img_name}".encode('ascii')
                 
-                # 预处理：Resize 到 224 并转为二进制
+                # Resize to 224px and serialize before writing.
                 try:
                     with Image.open(img_path) as img:
                         img = img.convert('RGB').resize((224, 224))

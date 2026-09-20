@@ -11,10 +11,10 @@ fi
 
 TMP=$(mktemp)
 
-# 合并
+# Merge all split outputs into one file.
 cat "$PROCESSED" "$REST" > "$TMP"
 
-# 打乱
+# Shuffle merged records to remove split-order bias.
 shuf "$TMP" > "$OUTPUT"
 
 rm "$TMP"

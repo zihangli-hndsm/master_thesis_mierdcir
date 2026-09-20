@@ -13,7 +13,7 @@ hf_tokenizer = CLIPTokenizerFast.from_pretrained("openai/clip-vit-base-patch32")
 
 
 def segment_lines(lines, max_length):
-    # 裁剪过长的句子，以适应clip tokenizer
+    # Truncate long sentences to fit the CLIP tokenizer limit.
     segment = []
     segment_word_count = 0
     segment_char_count = 0
@@ -30,7 +30,7 @@ def segment_lines(lines, max_length):
 
 class MTCIRDataset(Dataset):
     def __init__(self, data_path, json_path, lmdb_path, transform=None):
-        self.data = []  # 加载 JSON 文件
+        self.data = []  # Load annotation records into memory.
         self.transform = transform
         self.root = data_path
         self.image_root = os.path.join(data_path, "MTCIR/images")
@@ -42,19 +42,19 @@ class MTCIRDataset(Dataset):
         ])
         self.env = None
         print(f"Loading metadata from {self.jsonl_path}...")
-        # 逐行读取 JSONL
+        # Read JSONL annotations one record per line.
         with open(self.jsonl_path, 'r', encoding='utf-8') as f:
             for line in f:
-                if line.strip():  # 跳过空行
+                if line.strip():  # Skip blank JSONL rows.
                     self.data.append(json.loads(line))
 
         print(f"Loaded {len(self.data)} samples.")
-        # 假设 data 是一个列表，每项是 {'ref_img': 'a.jpg', 'text': 'change to red', 'target_img': 'b.jpg'}
-        
+        # Expected records contain reference image, modification text, and target image fields.
+
     def _init_db(self):
-        # 关键：每个 worker 进程第一次读取时初始化 env
+        # Initialize LMDB lazily in each DataLoader worker process.
         self.env = lmdb.open(self.lmdb_path, readonly=True, lock=False, readahead=False, meminit=False)
-        
+
     def __len__(self):
         return len(self.data)
 
@@ -63,7 +63,7 @@ class MTCIRDataset(Dataset):
             self._init_db()
         try:
             item = self.data[idx]
-            # 从lmdb数据库中读取图片
+            # Read encoded image bytes from LMDB.
             ref_img_key = item['image'].encode('ascii')
             target_img_key = item['target_img'].encode('ascii')
             with self.env.begin(write=False, buffers=True) as txn:
@@ -71,10 +71,10 @@ class MTCIRDataset(Dataset):
                 target_img_buf = txn.get(target_img_key)
             ref_img = Image.open(BytesIO(ref_img_buf)).convert('RGB')
             target_img = Image.open(BytesIO(target_img_buf)).convert('RGB')
-            
+
             ref_path = os.path.join(self.image_root, item['image'])
             target_path = os.path.join(self.image_root, item['target_img'])
-            
+
             if self.transform:
                 ref_img = self.transform(ref_img)
                 target_img = self.transform(target_img)
@@ -89,8 +89,8 @@ class MTCIRDataset(Dataset):
             }
 
         except Exception as e:
-            # 红队建议：训练时不要 print 错误，否则日志会爆炸。
-            # 直接换一个索引重试 (简单的容错策略)
+            # Avoid per-sample error prints during training because they can flood logs.
+            # Retry with another index as a simple fault-tolerance strategy.
             print(f"Warning: Error loading index {idx}: {e}")
             assert False
             new_idx = (idx + 1) % len(self.data)
@@ -98,21 +98,21 @@ class MTCIRDataset(Dataset):
 
     def custom_collate_fn(self, batch):
         """
-        batch: 是一个列表，每个元素是 __getitem__ 返回的字典
+        batch: is a list of dictionaries returned by __getitem__
         """
-        # 提取所有 np 字段，不让它们进入 default_collate
+        # Remove variable-length noun-phrase spans before default collation.
         nps = [item.pop('np') for item in batch]
 
-        # 使用官方默认逻辑处理剩余的字段 (id, image, target_img, text)
-        # 字符串会被处理成 list of strings，Tensor 会被叠成 [B, C, H, W]
+        # Use PyTorch default collation for fixed-shape fields.
+        # Strings become lists and tensors are stacked as [B, C, H, W].
         try:
             collated_batch = default_collate(batch)
         except RuntimeError as e:
-            # 如果这里还报错，说明 image 或其他字段尺寸也不统一
-            print("Collate error: 请检查图片尺寸是否统一 Resize 过")
+            # If this fails, another field has inconsistent shape or type.
+            print("Collate error: check that all images were resized to a consistent shape")
             raise e
 
-        # 把处理好的 nps 放回去
+        # Restore noun-phrase spans after collation.
         collated_batch['np'] = nps
 
         return collated_batch

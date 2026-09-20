@@ -27,19 +27,19 @@ def split_jsonl(input_file, num_splits, output_dir=".", prefix="part"):
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # 1. 计算总行数
-    print(f"正在统计行数: {input_file}...")
+    # 1. Count total input rows before splitting.
+    print(f"Counting rows: {input_file}...")
     with open(input_file, 'r', encoding='utf-8') as f:
         total_lines = sum(1 for _ in f)
     
     lines_per_file = math.ceil(total_lines / num_splits)
-    print(f"总行数: {total_lines}, 计划分为 {num_splits} 份, 每份约 {lines_per_file} 行。")
+    print(f"Total rows: {total_lines}, splitting into {num_splits} parts, approximately {lines_per_file} rows each.")
 
-    # 2. 开始拆分
+    # 2. Write each partition sequentially.
     with open(input_file, 'r', encoding='utf-8') as f:
         for i in range(num_splits):
             output_filename = output_dir / f"{prefix}_{i}.jsonl"
-            print(f"正在写入: {output_filename}")
+            print(f"Writing: {output_filename}")
             
             with open(output_filename, 'w', encoding='utf-8') as out_f:
                 count = 0
@@ -50,10 +50,10 @@ def split_jsonl(input_file, num_splits, output_dir=".", prefix="part"):
                     out_f.write(line)
                     count += 1
             
-            if not line: # 文件读完了
+            if not line: # Stop when the input file is exhausted.
                 break
 
-    print("拆分完成！")
+    print("Split complete！")
 
 
 if __name__ == "__main__":
