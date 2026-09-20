@@ -460,6 +460,8 @@ if __name__ == "__main__":
     parser.add_argument('--topk_checkpoint_dir', type=str, default='./checkpoints/topk')
     parser.add_argument('--eval_json_path', type=str, default=None,
                         help='Override the eval JSONL path (defaults to method-specific path)')
+    parser.add_argument('--val_interval', type=int, default=300,
+                        help='Validate every N steps within an epoch (default 300; epoch end always validates)')
     parser.add_argument('--seed', type=int, default=42,
                         help='Random seed for reproducibility across training runs')
     parser.add_argument('--resume_path', type=str, default='./checkpoints/checkpoint.pth.tar')
@@ -824,9 +826,9 @@ if __name__ == "__main__":
                 logger.info(f"  Total Loss:   {total_loss.item():.4f}")
                 logger.info(f"  InfoNCE Loss: {infonce_loss.item():.4f}")
                 logger.info(f"  SC Loss:      {sc_loss.item():.8f}")
-            if current_step % 300 == 0 or current_step == len(dataloader) - 1:
-                # validate every 300 steps AND at the end of each epoch, so small
-                # datasets (epoch < 300 steps) still produce checkpoints/metrics
+            if current_step % args.val_interval == 0 or current_step == len(dataloader) - 1:
+                # validate every val_interval steps AND at the end of each epoch, so small
+                # datasets (epoch < val_interval steps) still produce checkpoints/metrics
                 checkpoint_data = {
                     'epoch': epoch,
                     'step': current_step,

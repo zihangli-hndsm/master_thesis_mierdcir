@@ -1,4 +1,5 @@
 import argparse
+import csv
 import json
 import os
 import sys
@@ -447,7 +448,7 @@ def evaluate(model, loader, collection_name, device, k_list=(1, 5, 10, 50)):
 
 
 @torch.no_grad()
-def evaluate_exact(model, loader, collection_name, device, k_list=(1, 5, 10, 50)):
+def evaluate_exact(model, loader, collection_name, device, k_list=(1, 5, 10, 50), return_ranks=False):
     """Exact (non-ANN) global-gallery evaluation for MTCIR/MerdCIR.
 
     Same gallery construction as evaluate() (unique target images), but ranks by
@@ -469,21 +470,25 @@ def evaluate_exact(model, loader, collection_name, device, k_list=(1, 5, 10, 50)
 
     recalls = {k: [] for k in k_list}
     aps = []
+    ranks = []
     for batch in tqdm(loader, desc="Evaluating (exact)"):
         images = batch["image"].to(device)
         texts = batch["text"]
         target_ids = batch["target_path"]
+        pair_ids = batch["pair_id"]
         query_feats = F.normalize(model(images, texts, return_attention=False), dim=-1).cpu()
         scores = gallery @ query_feats.T  # (G, B)
         for i, target_id in enumerate(target_ids):
             gi = id_to_index[target_id]
             rank = int((scores[:, i].argsort(descending=True) == gi).nonzero()[0].item()) + 1
             aps.append(1.0 / rank)
+            if return_ranks:
+                ranks.append({"pair_id": str(pair_ids[i]), "target_id": str(target_id), "target_rank": rank})
             for k in k_list:
                 recalls[k].append(1 if rank <= k else 0)
     summary = {f"Recall@{k}": float(np.mean(recalls[k])) for k in k_list}
     summary["mAP"] = float(np.mean(aps))
-    return summary
+    return (summary, ranks) if return_ranks else summary
 
 
 @torch.no_grad()
@@ -898,6 +903,8 @@ def main():
     parser.add_argument("--fashioniq-lmdb-path", type=str, default=None)
     parser.add_argument("--fashioniq-output-json", type=str, default=None)
     parser.add_argument("--output-json", type=str, default=None)
+    parser.add_argument("--ranks-output", type=str, default=None,
+                        help="Optional CSV path for per-query exact-gallery target ranks (MTCIR/MerdCIR).")
     args = parser.parse_args()
 
     dataset_cfg = DATASET_PATHS[args.dataset]
@@ -1030,7 +1037,16 @@ def main():
                 print(f"{key}: {value:.6f}")
     else:
         if args.exact_gallery:
-            result = evaluate_exact(model, loader, collection_name, device)
+            if args.ranks_output:
+                result, ranks = evaluate_exact(model, loader, collection_name, device, return_ranks=True)
+                os.makedirs(os.path.dirname(os.path.abspath(args.ranks_output)), exist_ok=True)
+                with open(args.ranks_output, "w", newline="", encoding="utf-8") as f:
+                    writer = csv.DictWriter(f, fieldnames=["pair_id", "target_id", "target_rank"])
+                    writer.writeheader()
+                    writer.writerows(ranks)
+                print(f"Per-query ranks saved to: {args.ranks_output}")
+            else:
+                result = evaluate_exact(model, loader, collection_name, device)
         else:
             result = evaluate(model, loader, collection_name, device)
         print(f"Dataset: {args.dataset}")

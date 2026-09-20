@@ -1,5 +1,11 @@
 # Pair-Control 实验最终结果报告(3 seeds)
 
+> **最终口径提示（2026-08-27）：** 本文保留早期 pair-control 记录以便追溯。
+> 最终精确 gallery 复评、query-style matrix、Surface-Diverse 控制和论文可用
+> 的保守结论统一见 [`SUPPLEMENTARY_EXPERIMENTS_COMPLETE_RESULTS.md`](SUPPLEMENTARY_EXPERIMENTS_COMPLETE_RESULTS.md)
+> 与 [`SUPPLEMENTARY_EXPERIMENTS_PAPER_WRITING_INFO.md`](SUPPLEMENTARY_EXPERIMENTS_PAPER_WRITING_INFO.md)。
+> 若与本文早期四舍五入数字不一致，以最终汇总为准。
+
 **日期:** 2026-08-10(3rd seed s2025 完成)
 **前置协议:** `FOLLOWUP_EXPERIMENT_PLAN.md`(2026-08-08)
 **数据:** 冻结的 pair_control 严格交集 275,400 → train 255,400 / dev 10,000 / test 10,000(`data/pair_control/manifest.json`,sha256 已记录)

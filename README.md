@@ -11,6 +11,22 @@ The project includes:
 - attention visualization and result-analysis scripts
 - experiment notes in Markdown files
 
+## Latest Supplementary Results
+
+The final three-seed pair-control experiment compares Raw, Fixed, and Multi
+rewriting on the same 255,400 train / 10,000 dev / 10,000 test pairs. Raw is
+strongest on pair-held-out MTCIR (R@1 60.63), while Multi is strongest on
+MerdCIR (R@1 67.88) and CIRR full-gallery validation (R@1 25.86). Multi is
+not uniformly better: Fixed remains best on FashionIQ and CIRR candidate-set
+retrieval. The evidence supports domain- and query-style-dependent effects,
+not a universal generalization claim or an isolated causal claim about
+semantic intent diversity.
+
+See the [complete supplementary results](docs/SUPPLEMENTARY_EXPERIMENTS_COMPLETE_RESULTS.md)
+for the matched protocol, per-seed statistics, query-style matrix,
+Surface-Diverse control, and limitations. The [paper-writing summary](docs/SUPPLEMENTARY_EXPERIMENTS_PAPER_WRITING_INFO.md)
+contains conservative wording and citation-ready numbers.
+
 Large datasets, model checkpoints, generated JSON/JSONL files, Chroma databases, logs, and exported result artifacts are intentionally excluded from git. See `.gitignore` for the exact rules.
 
 ## License And Data Policy
@@ -117,4 +133,8 @@ Likewise, model weights and checkpoint evaluation outputs should remain under `c
 
 - Keep source code, scripts, and Markdown documentation in git.
 - Keep dataset files, images, vector indexes, archives, logs, generated plots, CSV/PDF reports, and model checkpoints out of git.
+- The repository's authoritative supplementary-results record is
+  `docs/SUPPLEMENTARY_EXPERIMENTS_COMPLETE_RESULTS.md`; older exploratory
+  reports remain for traceability and should not override its protocol or
+  claim boundaries.
 - If a small JSON file later becomes source configuration rather than generated data, add an explicit exception for that file in `.gitignore`.

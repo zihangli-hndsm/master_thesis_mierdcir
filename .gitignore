@@ -19,6 +19,7 @@ env/
 .idea/
 *.swp
 *.swo
+.qwen/
 
 # OS metadata
 .DS_Store
@@ -29,6 +30,7 @@ Thumbs.db
 *.jsonl
 *.csv
 *.tsv
+*.parquet
 
 # Model checkpoints and learned weights
 checkpoints/

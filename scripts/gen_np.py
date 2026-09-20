@@ -201,10 +201,10 @@ def build_nlp(spacy_model: str, benepar_model: str, max_length: int):
             # 尝试查找模型属性（可能是 .model 或 ._model）
             model = getattr(parser, "model", getattr(parser, "_model", None))
             
-            if model is not None and isinstance(model, torch.nn.Module):
+            if activated and torch.cuda.is_available() and model is not None and isinstance(model, torch.nn.Module):
                 model.cuda()
                 print(f"✅ 成功：探测到模型并移至 GPU: {next(model.parameters()).device}")
-            elif isinstance(parser, torch.nn.Module):
+            elif activated and torch.cuda.is_available() and isinstance(parser, torch.nn.Module):
                 # 某些版本 parser 本身就是 nn.Module
                 parser.cuda()
                 print("✅ 成功：Parser 本身即为 Module，已移至 GPU")
